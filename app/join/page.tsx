@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useEffect,
+  useState,
+} from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { saveCurrentEventId } from "@/lib/currentEvent";
@@ -15,19 +22,27 @@ type Event = {
   join_code: string;
 };
 
-export default function JoinPage() {
+function JoinPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const codeFromUrl =
-    searchParams.get("code")?.trim().toUpperCase() ?? "";
+    searchParams
+      .get("code")
+      ?.trim()
+      .toUpperCase() ?? "";
 
+  const [event, setEvent] =
+    useState<Event | null>(null);
 
-  const [event, setEvent] = useState<Event | null>(null);
+  const [isLoadingEvent, setIsLoadingEvent] =
+    useState(true);
 
-  const [isLoadingEvent, setIsLoadingEvent] = useState(true);
-  const [isJoining, setIsJoining] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isJoining, setIsJoining] =
+    useState(false);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   useEffect(() => {
     async function fetchEvent() {
@@ -35,17 +50,19 @@ export default function JoinPage() {
         setErrorMessage(
           "旅行コードがありません。トップページから参加してください。"
         );
+
         setIsLoadingEvent(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("events")
-        .select(
-          "id, title, location, start_date, end_date, join_code"
-        )
-        .ilike("join_code", codeFromUrl)
-        .maybeSingle();
+      const { data, error } =
+        await supabase
+          .from("events")
+          .select(
+            "id, title, location, start_date, end_date, join_code"
+          )
+          .ilike("join_code", codeFromUrl)
+          .maybeSingle();
 
       if (error) {
         console.log(
@@ -78,140 +95,120 @@ export default function JoinPage() {
   }, [codeFromUrl]);
 
   async function handleJoin() {
-  if (!event) {
-    setErrorMessage(
-      "参加するイベントが見つかりません。"
+    if (!event) {
+      setErrorMessage(
+        "参加するイベントが見つかりません。"
+      );
+      return;
+    }
+
+    if (isJoining) return;
+
+    setIsJoining(true);
+    setErrorMessage("");
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setErrorMessage(
+        "合宿に参加するにはログインしてください。"
+      );
+      setIsJoining(false);
+      return;
+    }
+
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
+      .from("profiles")
+      .select("user_name")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      setErrorMessage(
+        "プロフィールを取得できませんでした。"
+      );
+      setIsJoining(false);
+      return;
+    }
+
+    const {
+      data: existingMember,
+      error: memberCheckError,
+    } = await supabase
+      .from("event_members")
+      .select("id")
+      .eq("event_id", event.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (memberCheckError) {
+      console.log(
+        "参加状況確認エラー:",
+        memberCheckError.message
+      );
+
+      setErrorMessage(
+        "参加状況を確認できませんでした。"
+      );
+
+      setIsJoining(false);
+      return;
+    }
+
+    if (existingMember) {
+      saveCurrentEventId(event.id);
+      router.push("/event");
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(
+      `${event.end_date}T00:00:00`
     );
-    return;
-  }
 
-  if (isJoining) return;
+    if (today > endDate) {
+      setErrorMessage(
+        "この合宿は終了しているため、新しく参加することはできません。"
+      );
 
-  setIsJoining(true);
-  setErrorMessage("");
+      setIsJoining(false);
+      return;
+    }
 
-  // ① ログイン中のユーザーを取得
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    const { error: memberInsertError } =
+      await supabase
+        .from("event_members")
+        .insert({
+          event_id: event.id,
+          user_id: user.id,
+          user_name: profile.user_name,
+        });
 
-  if (userError || !user) {
-    setErrorMessage(
-      "合宿に参加するにはログインしてください。"
-    );
-    setIsJoining(false);
-    return;
-  }
+    if (memberInsertError) {
+      console.log(
+        "参加登録エラー:",
+        memberInsertError.message
+      );
 
-  // ② プロフィールを取得
-  const {
-    data: profile,
-    error: profileError,
-  } = await supabase
-    .from("profiles")
-    .select("user_name")
-    .eq("user_id", user.id)
-    .maybeSingle();
+      setErrorMessage(
+        "イベントへの参加登録に失敗しました。"
+      );
 
-  if (profileError || !profile) {
-    setErrorMessage(
-      "プロフィールを取得できませんでした。"
-    );
-    setIsJoining(false);
-    return;
-  }
-
-  // ③ この合宿に参加済みか確認
-  const {
-    data: existingMember,
-    error: memberCheckError,
-  } = await supabase
-    .from("event_members")
-    .select("id")
-    .eq("event_id", event.id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (memberCheckError) {
-    console.log(
-      "参加状況確認エラー:",
-      memberCheckError.message
-    );
-
-    setErrorMessage(
-      "参加状況を確認できませんでした。"
-    );
-
-    setIsJoining(false);
-    return;
-  }
-
-  // ④ すでに参加済みなら、終了後でも入れる
-  if (existingMember) {
-    localStorage.setItem(
-      "campbook-current-user",
-      profile.user_name
-    );
+      setIsJoining(false);
+      return;
+    }
 
     saveCurrentEventId(event.id);
-
     router.push("/event");
-    return;
   }
-
-  // ⑤ 未参加の場合だけ、合宿が終了しているか確認
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const endDate = new Date(
-    `${event.end_date}T00:00:00`
-  );
-
-  if (today > endDate) {
-    setErrorMessage(
-      "この合宿は終了しているため、新しく参加することはできません。"
-    );
-
-    setIsJoining(false);
-    return;
-  }
-
-  // ⑥ 開催中 ＋ 未参加なら新規参加
-  const { error: memberInsertError } =
-    await supabase
-      .from("event_members")
-      .insert({
-        event_id: event.id,
-        user_id: user.id,
-        user_name: profile.user_name,
-      });
-
-  if (memberInsertError) {
-    console.log(
-      "参加登録エラー:",
-      memberInsertError.message
-    );
-
-    setErrorMessage(
-      "イベントへの参加登録に失敗しました。"
-    );
-
-    setIsJoining(false);
-    return;
-  }
-
-  // ⑦ この端末の表示名を保存
-  localStorage.setItem(
-    "campbook-current-user",
-    profile.user_name
-  );
-
-  // ⑧ 現在開いているイベントを保存
-  saveCurrentEventId(event.id);
-
-  router.push("/event");
-}
 
   if (isLoadingEvent) {
     return (
@@ -239,12 +236,12 @@ export default function JoinPage() {
           </p>
 
           <h1 className="mt-2 text-3xl font-bold">
-  しおりに参加
-</h1>
+            しおりに参加
+          </h1>
 
-<p className="mt-3 text-sm leading-6 text-[#777c73]">
-  この合宿のしおりに参加します。
-</p>
+          <p className="mt-3 text-sm leading-6 text-[#777c73]">
+            この合宿のしおりに参加します。
+          </p>
         </div>
 
         {event && (
@@ -266,8 +263,6 @@ export default function JoinPage() {
         )}
 
         <div className="mt-7 rounded-[28px] bg-white p-6 shadow-sm">
-          
-
           {errorMessage && (
             <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
               {errorMessage}
@@ -293,5 +288,21 @@ export default function JoinPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function JoinPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f4f1e9]">
+          <p className="text-sm font-semibold text-[#73776f]">
+            しおりを確認しています…
+          </p>
+        </main>
+      }
+    >
+      <JoinPageContent />
+    </Suspense>
   );
 }
