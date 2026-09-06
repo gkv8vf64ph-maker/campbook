@@ -11,25 +11,32 @@ import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const router = useRouter();
-const [isLoggedIn, setIsLoggedIn] =
-  useState(false);
 
-useEffect(() => {
-  async function checkLogin() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const [isLoggedIn, setIsLoggedIn] =
+    useState(false);
 
-    setIsLoggedIn(!!user);
-  }
+  const [tripCode, setTripCode] =
+    useState("");
 
-  checkLogin();
-}, []);
-  const [tripCode, setTripCode] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] =
+    useState("");
 
-  async function handleSubmit(
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  useEffect(() => {
+    async function checkLogin() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      setIsLoggedIn(!!user);
+    }
+
+    checkLogin();
+  }, []);
+
+  function handleSubmit(
     event: FormEvent<HTMLFormElement>
   ) {
     event.preventDefault();
@@ -47,60 +54,12 @@ useEffect(() => {
     setError("");
     setIsLoading(true);
 
-    // Supabaseで本当に存在するコードか確認
-    const { data, error: searchError } =
-      await supabase
-        .from("events")
-        .select("id, join_code")
-        .ilike(
-          "join_code",
-          normalizedCode
-        )
-        .maybeSingle();
-
-    if (searchError) {
-      console.log(
-        "旅行コード検索エラー:",
-        searchError.message
-      );
-
-      setError(
-        "旅行コードを確認できませんでした"
-      );
-      setIsLoading(false);
-      return;
-    }
-
-    if (!data) {
-      setError(
-        "旅行コードが見つかりません"
-      );
-      setIsLoading(false);
-      return;
-    }
-
-    // ログイン状態を確認
-const {
-  data: { user },
-} = await supabase.auth.getUser();
-
-if (!user) {
-  // ログイン後に戻れるよう旅行コードを保存
-  localStorage.setItem(
-    "campbook-pending-join-code",
-    normalizedCode
-  );
-
-  router.push("/login");
-  return;
-}
-
-// ログイン済みならそのまま参加画面へ
-router.push(
-  `/join?code=${encodeURIComponent(
-    normalizedCode
-  )}`
-);
+    // 旅行の検索は /join 側のRPCに任せる
+    router.push(
+      `/join?code=${encodeURIComponent(
+        normalizedCode
+      )}`
+    );
   }
 
   return (
@@ -111,43 +70,42 @@ router.push(
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col px-6 pb-8 pt-12">
         <header>
           <div className="flex items-center justify-between">
-  <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#384334] text-xl font-bold text-white shadow-sm">
-              C
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#384334] text-xl font-bold text-white shadow-sm">
+                C
+              </div>
+
+              <div>
+                <h1 className="text-xl font-bold tracking-tight">
+                  CampBook
+                </h1>
+
+                <p className="text-xs text-[#73776d]">
+                  思い出を、しおりに。
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">
-                CampBook
-              </h1>
-
-              <p className="text-xs text-[#73776d]">
-                思い出をしおりに
-              </p>
-                </div>
-  </div>
-
-  {isLoggedIn ? (
-  <Link
-    href="/account"
-    className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#394536] shadow-sm"
-  >
-    アカウント
-  </Link>
-) : (
-  <Link
-    href="/login"
-    className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#394536] shadow-sm"
-  >
-    ログイン
-  </Link>
-)}
-</div>
-</header>
+            {isLoggedIn ? (
+              <Link
+                href="/account"
+                className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#394536] shadow-sm"
+              >
+                アカウント
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-full bg-white px-4 py-2 text-xs font-bold text-[#394536] shadow-sm"
+              >
+                ログイン
+              </Link>
+            )}
+          </div>
+        </header>
 
         <section className="flex flex-1 flex-col justify-center py-14">
           <div className="mb-8">
-
             <h2 className="text-4xl font-bold leading-tight tracking-[-0.04em]">
               しおりに参加
             </h2>
@@ -222,30 +180,30 @@ router.push(
         </section>
 
         <footer>
-  <Link
-    href="/history"
-    className="flex w-full items-center justify-between rounded-2xl border border-[#dedfd8] bg-white/50 px-5 py-4 text-left transition hover:bg-white/80"
-  >
-    <span>
-      <span className="block text-sm font-semibold">
-        過去のしおりを見る
-      </span>
+          <Link
+            href="/history"
+            className="flex w-full items-center justify-between rounded-2xl border border-[#dedfd8] bg-white/50 px-5 py-4 text-left transition hover:bg-white/80"
+          >
+            <span>
+              <span className="block text-sm font-semibold">
+                過去のしおりを見る
+              </span>
 
-      <span className="mt-1 block text-xs text-[#7a7e75]">
-        参加済みの旅行を振り返る
-      </span>
-    </span>
+              <span className="mt-1 block text-xs text-[#7a7e75]">
+                参加済みの旅行を振り返る
+              </span>
+            </span>
 
-    <span
-      className="text-xl text-[#71766d]"
-      aria-hidden="true"
-    >
-      ›
-    </span>
-  </Link>
+            <span
+              className="text-xl text-[#71766d]"
+              aria-hidden="true"
+            >
+              ›
+            </span>
+          </Link>
 
           <p className="mt-6 text-center text-[11px] text-[#95988f]">
-            CampBook 
+            CampBook
           </p>
         </footer>
       </div>
