@@ -20,22 +20,27 @@ export default function MeetingPlacePage() {
   const [meetingPlace, setMeetingPlace] =
     useState<MeetingPlace | null>(null);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
 
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  // 現在のイベントIDを取得
   useEffect(() => {
     const savedEventId = getCurrentEventId();
 
     if (savedEventId) {
       setCurrentEventId(savedEventId);
     } else {
-      setIsLoading(false);
       setErrorMessage(
         "参加中のイベントが見つかりません。"
       );
+      setIsLoading(false);
     }
   }, []);
 
+  // 集合場所を取得
   useEffect(() => {
     if (!currentEventId) return;
 
@@ -73,21 +78,18 @@ export default function MeetingPlacePage() {
     fetchMeetingPlace();
   }, [currentEventId]);
 
-  const mapQuery =
-    meetingPlace?.address ||
-    meetingPlace?.name ||
-    "";
-
-  const mapUrl =
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-      mapQuery
-    )}`;
+  const mapUrl = meetingPlace
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        meetingPlace.address ||
+          meetingPlace.name
+      )}`
+    : "";
 
   if (isLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f4f1e9]">
         <p className="text-sm font-semibold text-[#73776f]">
-          集合場所を読み込んでいます…
+          読み込み中…
         </p>
       </main>
     );
@@ -105,33 +107,30 @@ export default function MeetingPlacePage() {
 
         <section className="mt-7 overflow-hidden rounded-[28px] bg-white shadow-[0_16px_40px_rgba(57,69,54,0.10)]">
           <div className="bg-[#394536] p-6 text-white">
-            <p className="text-xs font-bold tracking-[0.14em] text-white/60">
-              MEETING PLACE
-            </p>
-
-            <h1 className="mt-2 text-3xl font-bold">
+            <h1 className="text-3xl font-bold">
               集合場所
             </h1>
 
             <p className="mt-2 text-sm text-white/70">
-              出発前に場所を確認しよう。
+              集合場所と詳細を確認できます。
             </p>
           </div>
 
           <div className="p-6">
             {errorMessage && (
-              <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
+              <p className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
                 {errorMessage}
               </p>
             )}
 
-            {!errorMessage && !meetingPlace && (
-              <div className="rounded-2xl bg-[#f4f5f0] p-5 text-center">
-                <p className="text-sm text-[#73776f]">
-                  集合場所はまだ設定されていません。
-                </p>
-              </div>
-            )}
+            {!errorMessage &&
+              !meetingPlace && (
+                <div className="rounded-2xl bg-[#f4f5f0] p-5 text-center">
+                  <p className="text-sm text-[#73776f]">
+                    集合場所はまだ設定されていません。
+                  </p>
+                </div>
+              )}
 
             {meetingPlace && (
               <>
@@ -145,14 +144,16 @@ export default function MeetingPlacePage() {
                   </h2>
 
                   {meetingPlace.address && (
-                    <p className="mt-2 text-sm text-[#6f746c]">
+                    <p className="mt-2 text-sm leading-6 text-[#6f746c]">
                       {meetingPlace.address}
                     </p>
                   )}
 
                   {meetingPlace.description && (
-                    <p className="mt-3 text-sm leading-6 text-[#73776f]">
-                      {meetingPlace.description}
+                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-[#73776f]">
+                      {
+                        meetingPlace.description
+                      }
                     </p>
                   )}
                 </div>
@@ -163,7 +164,7 @@ export default function MeetingPlacePage() {
                   </p>
 
                   <p className="mt-1 text-sm leading-6 text-amber-800">
-                    遅刻しそうな場合は、分かった時点で運営へ連絡してください。
+                    遅れそうな場合は、分かった時点で連絡してください。
                   </p>
                 </div>
 
@@ -171,9 +172,9 @@ export default function MeetingPlacePage() {
                   href={mapUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-[#394536] font-bold text-white transition hover:bg-[#2f392d]"
+                  className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-[#394536] font-bold text-white transition active:scale-[0.99]"
                 >
-                  Googleマップで開く
+                  Google マップで見る
                 </a>
               </>
             )}

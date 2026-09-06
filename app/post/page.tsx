@@ -1,10 +1,16 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import {
+  ChangeEvent,
+  useEffect,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getCurrentEventId } from "@/lib/currentEvent";
+
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
 export default function PostPage() {
   const router = useRouter();
@@ -18,21 +24,32 @@ export default function PostPage() {
   const [selectedFile, setSelectedFile] =
     useState<File | null>(null);
 
-  const [comment, setComment] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentUser, setCurrentUser] = useState("");
+  const [comment, setComment] =
+    useState("");
 
-  // 現在参加中のイベントを取得
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [currentUser, setCurrentUser] =
+    useState("");
+
+  // 現在のイベントIDを取得
   useEffect(() => {
     const savedEventId = getCurrentEventId();
 
     if (savedEventId) {
       setCurrentEventId(savedEventId);
+    } else {
+      setErrorMessage(
+        "参加中のイベントが見つかりません。"
+      );
     }
   }, []);
 
-  // ログイン中ユーザーのプロフィールを取得
+  // ログイン中のユーザー名を取得
   useEffect(() => {
     async function fetchCurrentUser() {
       const {
@@ -57,6 +74,11 @@ export default function PostPage() {
         .maybeSingle();
 
       if (profileError || !profile) {
+        console.log(
+          "プロフィール取得エラー:",
+          profileError?.message
+        );
+
         setErrorMessage(
           "プロフィールを取得できませんでした。"
         );
@@ -80,10 +102,22 @@ export default function PostPage() {
       setErrorMessage(
         "画像ファイルを選択してください。"
       );
+
+      event.target.value = "";
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
+    if (file.size > MAX_IMAGE_SIZE) {
+      setErrorMessage(
+        "10MB以下の写真を選択してください。"
+      );
+
+      event.target.value = "";
+      return;
+    }
+
+    const previewUrl =
+      URL.createObjectURL(file);
 
     setSelectedFile(file);
     setPreview(previewUrl);
@@ -91,7 +125,10 @@ export default function PostPage() {
   }
 
   async function handleSubmit() {
-    const trimmedComment = comment.trim();
+    if (isSubmitting) return;
+
+    const trimmedComment =
+      comment.trim();
 
     if (!currentEventId) {
       setErrorMessage(
@@ -114,6 +151,9 @@ export default function PostPage() {
       return;
     }
 
+    setIsSubmitting(true);
+    setErrorMessage("");
+
     const {
       data: { user },
       error: userError,
@@ -123,57 +163,71 @@ export default function PostPage() {
       setErrorMessage(
         "投稿するにはログインしてください。"
       );
+
+      setIsSubmitting(false);
       return;
     }
 
     if (!currentUser) {
       setErrorMessage(
-        "プロフィール情報を取得できませんでした。"
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage("");
-
-    const extension =
-      selectedFile.name.split(".").pop() ?? "jpg";
-
-    const filePath =
-      `event-${currentEventId}/${crypto.randomUUID()}.${extension}`;
-
-    // ① 写真をStorageへアップロード
-    const { error: uploadError } =
-      await supabase.storage
-        .from("photo")
-        .upload(filePath, selectedFile, {
-          contentType: selectedFile.type,
-          upsert: false,
-        });
-
-    if (uploadError) {
-      console.error(
-        "写真アップロードエラー:",
-        uploadError
-      );
-
-      setErrorMessage(
-        `写真の保存に失敗しました：${uploadError.message}`
+        "プロフィールを取得できませんでした。"
       );
 
       setIsSubmitting(false);
       return;
     }
 
-    // ② 公開URLを取得
+    const fileNameParts =
+      selectedFile.name.split(".");
+
+    const extension =
+      fileNameParts.length > 1
+        ? fileNameParts
+            .pop()
+            ?.toLowerCase() || "jpg"
+        : "jpg";
+
+    const filePath =
+      `event-${currentEventId}/${user.id}/${crypto.randomUUID()}.${extension}`;
+
+    // 写真をアップロード
+    const { error: uploadError } =
+      await supabase.storage
+        .from("photo")
+        .upload(
+          filePath,
+          selectedFile,
+          {
+            contentType:
+              selectedFile.type,
+            upsert: false,
+          }
+        );
+
+    if (uploadError) {
+      console.error(
+        "写真アップロードエラー:",
+        uploadError.message
+      );
+
+      setErrorMessage(
+        "写真を保存できませんでした。"
+      );
+
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 公開URLを取得
     const { data: publicUrlData } =
       supabase.storage
         .from("photo")
         .getPublicUrl(filePath);
 
-    const imageUrl = publicUrlData.publicUrl;
+    const imageUrl =
+      publicUrlData.publicUrl;
 
-    // ③ postsへ投稿を保存
+    // 投稿を保存
     const { error: insertError } =
       await supabase
         .from("posts")
@@ -188,16 +242,24 @@ export default function PostPage() {
     if (insertError) {
       console.error(
         "投稿保存エラー:",
-        insertError
+        insertError.message
       );
 
-      // DB保存に失敗したらアップロード画像も削除
-      await supabase.storage
-        .from("photo")
-        .remove([filePath]);
+      // 投稿保存に失敗した場合は画像を削除
+      const { error: removeError } =
+        await supabase.storage
+          .from("photo")
+          .remove([filePath]);
+
+      if (removeError) {
+        console.error(
+          "画像削除エラー:",
+          removeError.message
+        );
+      }
 
       setErrorMessage(
-        `投稿に失敗しました：${insertError.message}`
+        "投稿できませんでした。もう一度お試しください。"
       );
 
       setIsSubmitting(false);
@@ -207,7 +269,7 @@ export default function PostPage() {
     router.push("/timeline");
   }
 
-  // プレビューURLを後片付け
+  // プレビューURLを解放
   useEffect(() => {
     return () => {
       if (preview) {
@@ -226,42 +288,46 @@ export default function PostPage() {
           ← タイムラインへ戻る
         </Link>
 
-        <h1 className="mt-6 text-3xl font-bold">
-          新しい投稿
-        </h1>
+        <div className="mt-6">
+          <h1 className="text-3xl font-bold">
+            新しい投稿
+          </h1>
 
-        <p className="mt-2 text-sm text-gray-500">
-          この時間の思い出を残そう。
-        </p>
-
-        <div className="mt-4 rounded-2xl bg-[#eef2e9] px-4 py-3 text-sm text-[#52644b]">
-          <span className="font-bold">
-            {currentUser || "名前未設定"}
-          </span>
-          として投稿します
+          <p className="mt-2 text-sm text-[#777c73]">
+            写真とコメントを投稿できます。
+          </p>
         </div>
 
-        <div className="mt-6 rounded-3xl bg-white p-6 shadow">
-          {/* 写真選択 */}
-          <label className="flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50">
+        {currentUser && (
+          <div className="mt-5 rounded-2xl bg-[#eef2e9] px-4 py-3 text-sm text-[#52644b]">
+            <span className="font-bold">
+              {currentUser}
+            </span>
+            として投稿
+          </div>
+        )}
+
+        <div className="mt-6 rounded-3xl bg-white p-6 shadow-[0_10px_30px_rgba(57,69,54,0.06)]">
+          {/* 写真 */}
+          <label className="flex aspect-square cursor-pointer items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-[#d9ddd5] bg-[#fafbf8] transition active:scale-[0.99]">
             {preview ? (
               <img
                 src={preview}
-                alt="選択した写真のプレビュー"
+                alt="選択した写真"
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="text-center">
+              <div className="px-4 text-center">
                 <span className="text-6xl">
                   📷
                 </span>
 
-                <p className="mt-3 text-sm font-semibold text-gray-600">
-                  写真を選択
+                <p className="mt-3 text-sm font-bold text-[#5f645b]">
+                  写真を選ぶ
                 </p>
 
-                <p className="mt-1 text-xs text-gray-400">
-                  クリックして画像を追加
+                <p className="mt-1 text-xs text-[#92958e]">
+                  タップして写真を追加
                 </p>
               </div>
             )}
@@ -271,28 +337,40 @@ export default function PostPage() {
               accept="image/*"
               className="hidden"
               onChange={handleImageChange}
+              disabled={isSubmitting}
             />
           </label>
 
           {selectedFile && (
-            <p className="mt-2 truncate text-xs text-gray-500">
-              選択中：{selectedFile.name}
+            <p className="mt-2 truncate text-xs text-[#858980]">
+              {selectedFile.name}
             </p>
           )}
 
           {/* コメント */}
+          <label
+            htmlFor="post-comment"
+            className="mt-6 block text-sm font-bold text-[#394536]"
+          >
+            コメント
+          </label>
+
           <textarea
+            id="post-comment"
             value={comment}
             onChange={(event) => {
-              setComment(event.target.value);
+              setComment(
+                event.target.value
+              );
               setErrorMessage("");
             }}
-            className="mt-6 min-h-28 w-full resize-none rounded-xl border border-gray-200 p-3 outline-none transition focus:border-[#5d6b56] focus:ring-4 focus:ring-[#5d6b56]/10"
-            placeholder="今日の思い出を書こう！"
+            className="mt-2 min-h-28 w-full resize-none rounded-2xl border border-[#d9ddd5] bg-[#fafbf8] p-4 outline-none transition focus:border-[#5d6b56] focus:ring-4 focus:ring-[#5d6b56]/10"
+            placeholder="コメントを書く"
             maxLength={300}
+            disabled={isSubmitting}
           />
 
-          <div className="mt-1 text-right text-xs text-gray-400">
+          <div className="mt-1 text-right text-xs text-[#92958e]">
             {comment.length}/300
           </div>
 
@@ -305,11 +383,15 @@ export default function PostPage() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="mt-6 w-full rounded-xl bg-[#5d6b56] py-4 font-bold text-white transition hover:bg-[#4d5a47] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={
+              isSubmitting ||
+              !currentEventId ||
+              !currentUser
+            }
+            className="mt-6 w-full rounded-2xl bg-[#5d6b56] py-4 font-bold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting
-              ? "投稿しています…"
+              ? "投稿中…"
               : "投稿する"}
           </button>
         </div>

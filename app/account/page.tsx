@@ -72,9 +72,7 @@ export default function AccountPage() {
       return;
     }
 
-    localStorage.removeItem(
-      "campbook-current-user"
-    );
+    
 
     router.replace("/");
     router.refresh();
@@ -101,9 +99,7 @@ export default function AccountPage() {
         </Link>
 
         <div className="mt-8">
-          <p className="text-xs font-bold tracking-[0.16em] text-[#7b8475]">
-            ACCOUNT
-          </p>
+          
 
           <h1 className="mt-2 text-3xl font-bold">
             アカウント
@@ -135,7 +131,7 @@ export default function AccountPage() {
               </p>
 
               <p className="mt-1 text-xs text-[#858980]">
-                参加した合宿を振り返る
+                参加済みの旅行を振り返る
               </p>
             </div>
 
@@ -150,9 +146,7 @@ export default function AccountPage() {
             </p>
 
             <p className="mt-2 text-xs leading-5 text-[#858980]">
-              このアカウントでログインすれば、
-              機種変更後も参加した合宿と思い出を
-              引き継ぐことができます。
+              参加した旅行や思い出は、このアカウントに保存されます。
             </p>
           </div>
         </section>
@@ -164,7 +158,7 @@ export default function AccountPage() {
           className="mt-7 w-full rounded-2xl border border-[#d7dbd3] bg-white py-4 font-bold text-[#5d6b56] disabled:opacity-60"
         >
           {isLoggingOut
-            ? "ログアウトしています…"
+            ? "ログアウト中…"
             : "ログアウト"}
         </button>
       </div>

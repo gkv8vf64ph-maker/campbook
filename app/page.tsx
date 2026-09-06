@@ -122,7 +122,7 @@ router.push(
               </h1>
 
               <p className="text-xs text-[#73776d]">
-                あの日を、もう一度。
+                思い出をしおりに
               </p>
                 </div>
   </div>
@@ -147,20 +147,13 @@ router.push(
 
         <section className="flex flex-1 flex-col justify-center py-14">
           <div className="mb-8">
-            <p className="mb-3 text-sm font-semibold tracking-widest text-[#6f7d67]">
-              WELCOME
-            </p>
 
             <h2 className="text-4xl font-bold leading-tight tracking-[-0.04em]">
-              旅のしおりに
-              <br />
-              参加しよう。
+              しおりに参加
             </h2>
 
             <p className="mt-4 max-w-sm text-[15px] leading-7 text-[#686c63]">
-              共有された旅行コードを入力すると、
-              スケジュールや持ち物、
-              みんなの思い出を見ることができます。
+              旅行コードを入力して、しおりに参加できます。
             </p>
           </div>
 
@@ -185,7 +178,7 @@ router.push(
                 );
                 setError("");
               }}
-              placeholder="例：SUMMER26"
+              placeholder="例：CAMPBOOK"
               maxLength={20}
               autoComplete="off"
               className="h-16 w-full rounded-2xl border border-[#dedfd9] bg-[#fafaf7] px-5 text-center text-xl font-bold uppercase tracking-[0.18em] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:tracking-normal focus:border-[#697b60] focus:ring-4 focus:ring-[#697b60]/10"
@@ -203,7 +196,7 @@ router.push(
               className="mt-4 flex h-14 w-full items-center justify-center rounded-2xl bg-[#384334] text-base font-bold text-white shadow-sm transition hover:bg-[#2d372a] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isLoading
-                ? "旅行コードを確認しています…"
+                ? "確認中…"
                 : "しおりに参加する"}
 
               {!isLoading && (
@@ -223,14 +216,13 @@ router.push(
             </div>
 
             <p className="text-xs leading-5 text-[#777b72]">
-              旅行コードを知っている参加者だけが、
-              しおりと思い出を見ることができます。
+              旅行コードは参加者だけで共有してください。
             </p>
           </div>
         </section>
 
         <footer>
-  <a
+  <Link
     href="/history"
     className="flex w-full items-center justify-between rounded-2xl border border-[#dedfd8] bg-white/50 px-5 py-4 text-left transition hover:bg-white/80"
   >
@@ -250,10 +242,10 @@ router.push(
     >
       ›
     </span>
-  </a>
+  </Link>
 
           <p className="mt-6 text-center text-[11px] text-[#95988f]">
-            CampBook — 時間を保存する旅のしおり
+            CampBook 
           </p>
         </footer>
       </div>

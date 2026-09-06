@@ -16,25 +16,46 @@ export default function ChecklistPage() {
   const [currentEventId, setCurrentEventId] =
     useState<number | null>(null);
 
+  const [currentUserId, setCurrentUserId] =
+    useState<string | null>(null);
+
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [checkedIds, setCheckedIds] = useState<number[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isCheckedLoaded, setIsCheckedLoaded] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // 現在のイベントIDを取得
+  // 現在のイベントIDとログインユーザーを取得
   useEffect(() => {
-    const savedEventId = getCurrentEventId();
+    async function initialize() {
+      const savedEventId = getCurrentEventId();
 
-    if (savedEventId) {
+      if (!savedEventId) {
+        setIsLoading(false);
+        setErrorMessage(
+          "参加中のイベントが見つかりません。"
+        );
+        return;
+      }
+
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        setIsLoading(false);
+        setErrorMessage(
+          "ログイン情報を確認できませんでした。"
+        );
+        return;
+      }
+
       setCurrentEventId(savedEventId);
-    } else {
-      setIsLoading(false);
-      setErrorMessage(
-        "参加中のイベントが見つかりません。"
-      );
+      setCurrentUserId(user.id);
     }
+
+    initialize();
   }, []);
 
   // Supabaseから持ち物一覧を取得
@@ -76,80 +97,77 @@ export default function ChecklistPage() {
     fetchItems();
   }, [currentEventId]);
 
-  // イベントごとのチェック状態を読み込む
+  // ユーザー・イベントごとのチェック状態を読み込む
   useEffect(() => {
-    if (!currentEventId) return;
+    if (!currentEventId || !currentUserId) return;
 
     const storageKey =
-      `campbook-checklist-${currentEventId}`;
+      `campbook-checklist-${currentEventId}-${currentUserId}`;
 
     const savedData =
       localStorage.getItem(storageKey);
 
-    if (savedData) {
-      try {
-        const parsedData =
-          JSON.parse(savedData);
-
-        if (Array.isArray(parsedData)) {
-          setCheckedIds(
-            parsedData.filter(
-              (value): value is number =>
-                typeof value === "number"
-            )
-          );
-        }
-      } catch {
-        localStorage.removeItem(storageKey);
-      }
+    if (!savedData) {
+      setCheckedIds([]);
+      return;
     }
 
-    setIsCheckedLoaded(true);
-  }, [currentEventId]);
+    try {
+      const parsedData = JSON.parse(savedData);
 
-  
-
-  
+      if (Array.isArray(parsedData)) {
+        setCheckedIds(
+          parsedData.filter(
+            (value): value is number =>
+              typeof value === "number"
+          )
+        );
+      }
+    } catch {
+      localStorage.removeItem(storageKey);
+      setCheckedIds([]);
+    }
+  }, [currentEventId, currentUserId]);
 
   function toggle(itemId: number) {
-  if (!currentEventId) return;
+    if (!currentEventId || !currentUserId) return;
 
-  setCheckedIds((current) => {
-    const nextCheckedIds = current.includes(itemId)
-      ? current.filter((id) => id !== itemId)
-      : [...current, itemId];
+    setCheckedIds((current) => {
+      const nextCheckedIds = current.includes(itemId)
+        ? current.filter((id) => id !== itemId)
+        : [...current, itemId];
 
-    const storageKey =
-      `campbook-checklist-${currentEventId}`;
+      const storageKey =
+        `campbook-checklist-${currentEventId}-${currentUserId}`;
 
-    localStorage.setItem(
-      storageKey,
-      JSON.stringify(nextCheckedIds)
-    );
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify(nextCheckedIds)
+      );
 
-    return nextCheckedIds;
-  });
-}
+      return nextCheckedIds;
+    });
+  }
 
   function resetChecklist() {
-  if (!currentEventId) return;
+    if (!currentEventId || !currentUserId) return;
 
-  const shouldReset = window.confirm(
-    "チェックをすべて外しますか？"
-  );
+    const shouldReset = window.confirm(
+      "チェックをすべて外しますか？"
+    );
 
-  if (shouldReset) {
+    if (!shouldReset) return;
+
     setCheckedIds([]);
 
     const storageKey =
-      `campbook-checklist-${currentEventId}`;
+      `campbook-checklist-${currentEventId}-${currentUserId}`;
 
     localStorage.setItem(
       storageKey,
       JSON.stringify([])
     );
   }
-}
 
   const completedCount = useMemo(() => {
     return items.filter((item) =>
@@ -161,8 +179,7 @@ export default function ChecklistPage() {
     items.length === 0
       ? 0
       : Math.round(
-          (completedCount / items.length) *
-            100
+          (completedCount / items.length) * 100
         );
 
   return (
@@ -176,11 +193,7 @@ export default function ChecklistPage() {
         </Link>
 
         <section className="mt-7 rounded-[28px] bg-[#394536] p-6 text-white shadow-[0_16px_40px_rgba(57,69,54,0.18)]">
-          <p className="text-xs font-bold tracking-[0.14em] text-white/60">
-            PACKING LIST
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold">
+          <h1 className="text-3xl font-bold">
             持ち物チェック
           </h1>
 
@@ -191,8 +204,7 @@ export default function ChecklistPage() {
           <div className="mt-6">
             <div className="flex items-center justify-between text-sm">
               <span>
-                {completedCount} /{" "}
-                {items.length} 完了
+                {completedCount} / {items.length} 完了
               </span>
 
               <span className="font-bold">
@@ -213,7 +225,7 @@ export default function ChecklistPage() {
 
         {isLoading && (
           <p className="mt-7 text-center text-sm text-[#777c73]">
-            持ち物を読み込んでいます…
+            読み込み中…
           </p>
         )}
 
@@ -236,7 +248,7 @@ export default function ChecklistPage() {
               </p>
 
               <p className="mt-2 text-sm text-[#777c73]">
-                運営から持ち物が追加されると、ここに表示されます。
+                持ち物が追加されると、ここに表示されます。
               </p>
             </div>
           )}
@@ -250,9 +262,7 @@ export default function ChecklistPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() =>
-                  toggle(item.id)
-                }
+                onClick={() => toggle(item.id)}
                 className={`flex w-full items-center justify-between rounded-2xl border p-5 text-left shadow-sm transition active:scale-[0.99] ${
                   isChecked
                     ? "border-[#5d6b56] bg-[#5d6b56] text-white"
@@ -270,14 +280,14 @@ export default function ChecklistPage() {
                 </span>
 
                 <span
-  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold ${
-    isChecked
-      ? "border-white bg-white text-[#5d6b56]"
-      : "border-[#aeb5a8] bg-white text-[#95998f]"
-  }`}
->
-  {isChecked ? "✓" : ""}
-</span>
+                  className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm font-bold ${
+                    isChecked
+                      ? "border-white bg-white text-[#5d6b56]"
+                      : "border-[#aeb5a8] bg-white text-[#95998f]"
+                  }`}
+                >
+                  {isChecked ? "✓" : ""}
+                </span>
               </button>
             );
           })}
@@ -294,8 +304,7 @@ export default function ChecklistPage() {
         )}
 
         {items.length > 0 &&
-          completedCount ===
-            items.length && (
+          completedCount === items.length && (
             <div className="mt-6 rounded-2xl bg-[#e4ebdf] p-5 text-center">
               <p className="text-2xl">
                 🎉

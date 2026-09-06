@@ -8,6 +8,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import BottomNav from "@/components/BottomNav";
 
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
+
 type Profile = {
   id: number;
   user_name: string;
@@ -16,8 +18,6 @@ type Profile = {
 };
 
 export default function ProfilePage() {
-  
-
   const [profile, setProfile] =
     useState<Profile | null>(null);
 
@@ -45,64 +45,81 @@ export default function ProfilePage() {
   ] = useState<string | null>(null);
 
   const [
-    errorMessage,
-    setErrorMessage,
-  ] = useState("");
+    previewObjectUrl,
+    setPreviewObjectUrl,
+  ] = useState<string | null>(null);
 
-  
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   // ログイン中の本人プロフィールを取得
-useEffect(() => {
-  async function fetchProfile() {
-    setIsLoading(true);
-    setErrorMessage("");
+  useEffect(() => {
+    async function fetchProfile() {
+      setIsLoading(true);
+      setErrorMessage("");
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      setErrorMessage(
-        "プロフィールを見るにはログインしてください。"
+      if (userError || !user) {
+        setErrorMessage(
+          "プロフィールを見るにはログインしてください。"
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      const { data, error } =
+        await supabase
+          .from("profiles")
+          .select(
+            "id, user_name, avatar_url, bio"
+          )
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+      if (error) {
+        console.error(
+          "プロフィール取得エラー:",
+          error.message
+        );
+
+        setErrorMessage(
+          "プロフィールを読み込めませんでした。"
+        );
+
+        setIsLoading(false);
+        return;
+      }
+
+      setProfile(
+        (data as Profile | null) ?? null
       );
+
       setIsLoading(false);
-      return;
     }
 
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, user_name, avatar_url, bio"
-      )
-      .eq("user_id", user.id)
-      .maybeSingle();
+    fetchProfile();
+  }, []);
 
-    if (error) {
-      console.error(
-        "プロフィール取得エラー:",
-        error
-      );
-
-      setErrorMessage(
-        "プロフィールの取得に失敗しました。"
-      );
-
-      setIsLoading(false);
-      return;
-    }
-
-    setProfile(data ?? null);
-    setIsLoading(false);
-  }
-
-  fetchProfile();
-}, []);
+  // プレビューURLを解放
+  useEffect(() => {
+    return () => {
+      if (previewObjectUrl) {
+        URL.revokeObjectURL(
+          previewObjectUrl
+        );
+      }
+    };
+  }, [previewObjectUrl]);
 
   function startEditing() {
     setEditName(
-  profile?.user_name ?? ""
-);
+      profile?.user_name ?? ""
+    );
 
     setEditBio(
       profile?.bio ?? ""
@@ -113,8 +130,16 @@ useEffect(() => {
     );
 
     setSelectedFile(null);
+    setPreviewObjectUrl(null);
     setErrorMessage("");
     setIsEditing(true);
+  }
+
+  function cancelEditing() {
+    setSelectedFile(null);
+    setPreviewObjectUrl(null);
+    setErrorMessage("");
+    setIsEditing(false);
   }
 
   function handleImageChange(
@@ -125,12 +150,21 @@ useEffect(() => {
 
     if (!file) return;
 
-    if (
-      !file.type.startsWith("image/")
-    ) {
+    if (!file.type.startsWith("image/")) {
       setErrorMessage(
         "画像ファイルを選択してください。"
       );
+
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      setErrorMessage(
+        "10MB以下の画像を選択してください。"
+      );
+
+      event.target.value = "";
       return;
     }
 
@@ -138,23 +172,14 @@ useEffect(() => {
       URL.createObjectURL(file);
 
     setSelectedFile(file);
+    setPreviewObjectUrl(previewUrl);
     setEditProfileImage(previewUrl);
     setErrorMessage("");
   }
 
   async function saveProfile() {
-    const {
-  data: { user },
-  error: userError,
-} = await supabase.auth.getUser();
+    if (isSaving) return;
 
-if (userError || !user) {
-  setErrorMessage(
-    "ログイン情報を取得できませんでした。"
-  );
-  setIsSaving(false);
-  return;
-}
     const trimmedName =
       editName.trim();
 
@@ -168,24 +193,47 @@ if (userError || !user) {
     setIsSaving(true);
     setErrorMessage("");
 
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setErrorMessage(
+        "ログイン情報を取得できませんでした。"
+      );
+
+      setIsSaving(false);
+      return;
+    }
+
     let avatarUrl =
       profile?.avatar_url ?? null;
 
-    // 新しい写真が選ばれていたらアップロード
-    if (selectedFile) {
-      const extension =
-        selectedFile.name
-          .split(".")
-          .pop() ?? "jpg";
+    let uploadedFilePath:
+      | string
+      | null = null;
 
-      const filePath =
-        `profiles/${crypto.randomUUID()}.${extension}`;
+    // 新しい画像が選ばれている場合
+    if (selectedFile) {
+      const fileNameParts =
+        selectedFile.name.split(".");
+
+      const extension =
+        fileNameParts.length > 1
+          ? fileNameParts
+              .pop()
+              ?.toLowerCase() || "jpg"
+          : "jpg";
+
+      uploadedFilePath =
+        `profiles/${user.id}/${crypto.randomUUID()}.${extension}`;
 
       const { error: uploadError } =
         await supabase.storage
           .from("photo")
           .upload(
-            filePath,
+            uploadedFilePath,
             selectedFile,
             {
               contentType:
@@ -197,42 +245,42 @@ if (userError || !user) {
       if (uploadError) {
         console.error(
           "プロフィール画像保存エラー:",
-          uploadError
+          uploadError.message
         );
 
         setErrorMessage(
-          `画像の保存に失敗しました：${uploadError.message}`
+          "画像を保存できませんでした。"
         );
 
         setIsSaving(false);
         return;
       }
 
-      const {
-        data: publicUrlData,
-      } = supabase.storage
-        .from("photo")
-        .getPublicUrl(filePath);
+      const { data: publicUrlData } =
+        supabase.storage
+          .from("photo")
+          .getPublicUrl(
+            uploadedFilePath
+          );
 
       avatarUrl =
         publicUrlData.publicUrl;
     }
+
+    const profileValues = {
+      user_name: trimmedName,
+      avatar_url: avatarUrl,
+      bio: editBio.trim() || null,
+    };
 
     if (profile) {
       // 既存プロフィールを更新
       const { data, error } =
         await supabase
           .from("profiles")
-          .update({
-            user_name:
-              trimmedName,
-            avatar_url:
-              avatarUrl,
-            bio:
-              editBio.trim() ||
-              null,
-          })
+          .update(profileValues)
           .eq("id", profile.id)
+          .eq("user_id", user.id)
           .select(
             "id, user_name, avatar_url, bio"
           )
@@ -241,29 +289,45 @@ if (userError || !user) {
       if (error) {
         console.error(
           "プロフィール更新エラー:",
-          error
+          error.message
         );
 
+        // DB更新失敗時は、
+        // 今回アップロードした画像を削除
+        if (uploadedFilePath) {
+          const { error: removeError } =
+            await supabase.storage
+              .from("photo")
+              .remove([
+                uploadedFilePath,
+              ]);
+
+          if (removeError) {
+            console.error(
+              "画像削除エラー:",
+              removeError.message
+            );
+          }
+        }
+
         setErrorMessage(
-          `プロフィール更新に失敗しました：${error.message}`
+          "プロフィールを保存できませんでした。"
         );
 
         setIsSaving(false);
         return;
       }
 
-      setProfile(data);
+      setProfile(data as Profile);
     } else {
-      // プロフィールがまだなければ作成
+      // プロフィールがない場合は作成
       const { data, error } =
         await supabase
           .from("profiles")
           .insert({
-  user_id: user.id,
-  user_name: trimmedName,
-  avatar_url: avatarUrl,
-  bio: editBio.trim() || null,
-})
+            user_id: user.id,
+            ...profileValues,
+          })
           .select(
             "id, user_name, avatar_url, bio"
           )
@@ -272,33 +336,51 @@ if (userError || !user) {
       if (error) {
         console.error(
           "プロフィール作成エラー:",
-          error
+          error.message
         );
 
+        if (uploadedFilePath) {
+          const { error: removeError } =
+            await supabase.storage
+              .from("photo")
+              .remove([
+                uploadedFilePath,
+              ]);
+
+          if (removeError) {
+            console.error(
+              "画像削除エラー:",
+              removeError.message
+            );
+          }
+        }
+
         setErrorMessage(
-          `プロフィール作成に失敗しました：${error.message}`
+          "プロフィールを保存できませんでした。"
         );
 
         setIsSaving(false);
         return;
       }
 
-      setProfile(data);
+      setProfile(data as Profile);
     }
 
-    // この端末のユーザー名も更新
-    
-
     setSelectedFile(null);
+    setPreviewObjectUrl(null);
+    setEditProfileImage(
+      avatarUrl
+    );
+
     setIsSaving(false);
     setIsEditing(false);
   }
 
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-[#f4f1e9] p-6">
-        <p className="text-center text-[#73776f]">
-          プロフィールを読み込んでいます…
+      <main className="flex min-h-screen items-center justify-center bg-[#f4f1e9] p-6">
+        <p className="text-sm font-semibold text-[#73776f]">
+          読み込み中…
         </p>
       </main>
     );
@@ -310,6 +392,13 @@ if (userError || !user) {
         <h1 className="text-2xl font-bold">
           プロフィール
         </h1>
+
+        {errorMessage &&
+          !isEditing && (
+            <p className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
+              {errorMessage}
+            </p>
+          )}
 
         <div className="mt-8 rounded-[30px] bg-white p-6 shadow-[0_10px_30px_rgba(57,69,54,0.07)]">
           {!isEditing ? (
@@ -332,20 +421,18 @@ if (userError || !user) {
 
               <h2 className="mt-5 text-center text-2xl font-bold">
                 {profile?.user_name ||
-  "プロフィール未設定"}
+                  "プロフィール未設定"}
               </h2>
 
-              <p className="mt-2 text-center text-sm text-[#73776f]">
+              <p className="mt-2 whitespace-pre-wrap text-center text-sm leading-6 text-[#73776f]">
                 {profile?.bio ||
                   "ひとこと未設定"}
               </p>
 
               <button
                 type="button"
-                onClick={
-                  startEditing
-                }
-                className="mt-8 h-12 w-full rounded-2xl bg-[#394536] font-bold text-white"
+                onClick={startEditing}
+                className="mt-8 h-12 w-full rounded-2xl bg-[#394536] font-bold text-white transition active:scale-[0.99]"
               >
                 プロフィールを編集
               </button>
@@ -383,47 +470,58 @@ if (userError || !user) {
                     onChange={
                       handleImageChange
                     }
+                    disabled={isSaving}
                   />
                 </label>
               </div>
 
               <div className="mt-7">
-                <label className="text-sm font-bold">
+                <label
+                  htmlFor="profile-name"
+                  className="text-sm font-bold"
+                >
                   名前
                 </label>
 
                 <input
+                  id="profile-name"
                   value={editName}
-                  onChange={(
-                    event
-                  ) =>
+                  onChange={(event) => {
                     setEditName(
                       event.target.value
-                    )
-                  }
+                    );
+
+                    setErrorMessage("");
+                  }}
                   placeholder="名前を入力"
-                  className="mt-2 h-12 w-full rounded-2xl border border-[#dedfd9] bg-[#faf9f5] px-4 outline-none focus:border-[#687562]"
+                  className="mt-2 h-12 w-full rounded-2xl border border-[#dedfd9] bg-[#faf9f5] px-4 outline-none transition focus:border-[#687562] focus:ring-4 focus:ring-[#687562]/10"
                   maxLength={20}
+                  disabled={isSaving}
                 />
               </div>
 
               <div className="mt-5">
-                <label className="text-sm font-bold">
+                <label
+                  htmlFor="profile-bio"
+                  className="text-sm font-bold"
+                >
                   ひとこと
                 </label>
 
                 <input
+                  id="profile-bio"
                   value={editBio}
-                  onChange={(
-                    event
-                  ) =>
+                  onChange={(event) => {
                     setEditBio(
                       event.target.value
-                    )
-                  }
+                    );
+
+                    setErrorMessage("");
+                  }}
                   placeholder="ひとことを入力"
-                  className="mt-2 h-12 w-full rounded-2xl border border-[#dedfd9] bg-[#faf9f5] px-4 outline-none focus:border-[#687562]"
+                  className="mt-2 h-12 w-full rounded-2xl border border-[#dedfd9] bg-[#faf9f5] px-4 outline-none transition focus:border-[#687562] focus:ring-4 focus:ring-[#687562]/10"
                   maxLength={50}
+                  disabled={isSaving}
                 />
 
                 <p className="mt-2 text-right text-xs text-[#999]">
@@ -439,13 +537,9 @@ if (userError || !user) {
 
               <button
                 type="button"
-                onClick={
-                  saveProfile
-                }
-                disabled={
-                  isSaving
-                }
-                className="mt-6 h-12 w-full rounded-2xl bg-[#394536] font-bold text-white disabled:opacity-50"
+                onClick={saveProfile}
+                disabled={isSaving}
+                className="mt-6 h-12 w-full rounded-2xl bg-[#394536] font-bold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSaving
                   ? "保存中…"
@@ -454,15 +548,11 @@ if (userError || !user) {
 
               <button
                 type="button"
-                onClick={() =>
-                  setIsEditing(
-                    false
-                  )
+                onClick={
+                  cancelEditing
                 }
-                disabled={
-                  isSaving
-                }
-                className="mt-3 h-12 w-full rounded-2xl bg-[#f1f1ed] font-bold text-[#555]"
+                disabled={isSaving}
+                className="mt-3 h-12 w-full rounded-2xl bg-[#f1f1ed] font-bold text-[#555] transition active:scale-[0.99] disabled:opacity-50"
               >
                 キャンセル
               </button>

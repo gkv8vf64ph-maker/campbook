@@ -1,6 +1,9 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import {
+  FormEvent,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -8,8 +11,11 @@ import { supabase } from "@/lib/supabase";
 export default function LoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] =
+    useState("");
+
+  const [password, setPassword] =
+    useState("");
 
   const [isLoading, setIsLoading] =
     useState(false);
@@ -17,81 +23,107 @@ export default function LoginPage() {
   const [errorMessage, setErrorMessage] =
     useState("");
 
-  async function handleLogin() {
-     
-  const normalizedEmail =
-    email.trim().toLowerCase();
+  async function handleLogin(
+    event?: FormEvent<HTMLFormElement>
+  ) {
+    event?.preventDefault();
 
-  if (!normalizedEmail) {
-    setErrorMessage("メールアドレスを入力してください。");
-    return;
-  }
+    const normalizedEmail =
+      email.trim().toLowerCase();
 
-  if (!password) {
-    setErrorMessage("パスワードを入力してください。");
-    return;
-  }
+    if (!normalizedEmail) {
+      setErrorMessage(
+        "メールアドレスを入力してください。"
+      );
+      return;
+    }
 
-  if (isLoading) return;
+    if (!password) {
+      setErrorMessage(
+        "パスワードを入力してください。"
+      );
+      return;
+    }
 
-  setIsLoading(true);
-  setErrorMessage("");
+    if (isLoading) return;
 
-  const { data, error: loginError } =
-    await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
+    setIsLoading(true);
+    setErrorMessage("");
 
-  if (loginError) {
-    setErrorMessage(
-      "メールアドレスまたはパスワードが違います。"
-    );
-    setIsLoading(false);
-    return;
-  }
+    const {
+      data,
+      error: loginError,
+    } =
+      await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
 
-  const user = data.user;
+    if (loginError) {
+      setErrorMessage(
+        "メールアドレスまたはパスワードが違います。"
+      );
 
-  if (!user) {
-    setErrorMessage("ユーザー情報を取得できませんでした。");
-    setIsLoading(false);
-    return;
-  }
+      setIsLoading(false);
+      return;
+    }
 
-  const { data: profile, error: profileError } =
-    await supabase
+    const user = data.user;
+
+    if (!user) {
+      setErrorMessage(
+        "ユーザー情報を取得できませんでした。"
+      );
+
+      setIsLoading(false);
+      return;
+    }
+
+    const {
+      data: profile,
+      error: profileError,
+    } = await supabase
       .from("profiles")
       .select("user_name")
       .eq("user_id", user.id)
       .maybeSingle();
 
-  if (profileError || !profile) {
-    setErrorMessage(
-      "プロフィールを読み込めませんでした。"
-    );
-    setIsLoading(false);
-    return;
+    if (profileError || !profile) {
+      console.log(
+        "プロフィール取得エラー:",
+        profileError?.message
+      );
+
+      setErrorMessage(
+        "プロフィールを読み込めませんでした。"
+      );
+
+      setIsLoading(false);
+      return;
+    }
+
+    const pendingJoinCode =
+      localStorage.getItem(
+        "campbook-pending-join-code"
+      );
+
+    if (pendingJoinCode) {
+      localStorage.removeItem(
+        "campbook-pending-join-code"
+      );
+
+      router.push(
+        `/join?code=${encodeURIComponent(
+          pendingJoinCode
+        )}`
+      );
+
+      return;
+    }
+
+    router.push("/");
+    router.refresh();
   }
-
-  const pendingJoinCode = localStorage.getItem(
-    "campbook-pending-join-code"
-  );
-
-  if (pendingJoinCode) {
-    localStorage.removeItem(
-      "campbook-pending-join-code"
-    );
-
-    router.push(
-      `/join?code=${encodeURIComponent(pendingJoinCode)}`
-    );
-    return;
-  }
-
-  router.push("/");
-  router.refresh();
-}
 
   return (
     <main className="min-h-screen bg-[#f4f1e9] px-5 py-10 text-[#252720]">
@@ -104,27 +136,28 @@ export default function LoginPage() {
         </Link>
 
         <div className="mt-10">
-          <p className="text-xs font-bold tracking-[0.16em] text-[#7b8475]">
-            WELCOME BACK
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold">
+          <h1 className="text-3xl font-bold">
             ログイン
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-[#777c73]">
-            あなたのCampBookに戻ろう。
+            CampBookを続きから使えます。
           </p>
         </div>
 
         <form
-  className="mt-8 rounded-[28px] bg-white p-6 shadow-[0_10px_30px_rgba(57,69,54,0.06)]"
->
-          <label className="text-sm font-bold text-[#394536]">
+          onSubmit={handleLogin}
+          className="mt-8 rounded-[28px] bg-white p-6 shadow-[0_10px_30px_rgba(57,69,54,0.06)]"
+        >
+          <label
+            htmlFor="email"
+            className="text-sm font-bold text-[#394536]"
+          >
             メールアドレス
           </label>
 
           <input
+            id="email"
             type="email"
             value={email}
             onChange={(event) => {
@@ -132,14 +165,19 @@ export default function LoginPage() {
               setErrorMessage("");
             }}
             autoComplete="email"
+            inputMode="email"
             className="mt-2 w-full rounded-2xl border border-[#d9ddd5] bg-[#fafbf8] px-4 py-4 outline-none focus:border-[#5d6b56] focus:ring-4 focus:ring-[#5d6b56]/10"
           />
 
-          <label className="mt-5 block text-sm font-bold text-[#394536]">
+          <label
+            htmlFor="password"
+            className="mt-5 block text-sm font-bold text-[#394536]"
+          >
             パスワード
           </label>
 
           <input
+            id="password"
             type="password"
             value={password}
             onChange={(event) => {
@@ -155,28 +193,28 @@ export default function LoginPage() {
               {errorMessage}
             </p>
           )}
-<button
-  type="button"
-  onClick={handleLogin}
-  disabled={isLoading}
-  className="mt-6 w-full rounded-2xl bg-[#394536] py-4 font-bold text-white transition disabled:opacity-60"
->
-  {isLoading
-    ? "ログインしています…"
-    : "ログイン"}
-</button>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="mt-6 w-full rounded-2xl bg-[#394536] py-4 font-bold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoading
+              ? "ログイン中…"
+              : "ログイン"}
+          </button>
         </form>
 
         <div className="mt-5 text-center">
           <p className="text-sm text-[#777c73]">
-            アカウントを持っていない？
+            アカウントを持っていませんか？
           </p>
 
           <Link
             href="/signup"
             className="mt-2 inline-block text-sm font-bold text-[#5d6b56]"
           >
-            新しく作る →
+            アカウントを作る →
           </Link>
         </div>
       </div>

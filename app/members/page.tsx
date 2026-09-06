@@ -7,10 +7,12 @@ import { getCurrentEventId } from "@/lib/currentEvent";
 
 type Member = {
   id: number;
+  user_id: string;
   user_name: string;
 };
 
 type Profile = {
+  user_id: string;
   user_name: string;
   avatar_url: string | null;
   bio: string | null;
@@ -20,25 +22,33 @@ export default function MembersPage() {
   const [currentEventId, setCurrentEventId] =
     useState<number | null>(null);
 
-  const [members, setMembers] = useState<Member[]>([]);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [members, setMembers] =
+    useState<Member[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [profiles, setProfiles] =
+    useState<Profile[]>([]);
 
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  // 現在のイベントIDを取得
   useEffect(() => {
     const savedEventId = getCurrentEventId();
 
     if (savedEventId) {
       setCurrentEventId(savedEventId);
     } else {
-      setIsLoading(false);
       setErrorMessage(
         "参加中のイベントが見つかりません。"
       );
+      setIsLoading(false);
     }
   }, []);
 
+  // 参加メンバーとプロフィールを取得
   useEffect(() => {
     if (!currentEventId) return;
 
@@ -46,14 +56,18 @@ export default function MembersPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const { data: memberData, error: memberError } =
-        await supabase
-          .from("event_members")
-          .select("id, user_name")
-          .eq("event_id", currentEventId)
-          .order("created_at", {
-            ascending: true,
-          });
+      const {
+        data: memberData,
+        error: memberError,
+      } = await supabase
+        .from("event_members")
+        .select(
+          "id, user_id, user_name"
+        )
+        .eq("event_id", currentEventId)
+        .order("created_at", {
+          ascending: true,
+        });
 
       if (memberError) {
         console.log(
@@ -69,7 +83,8 @@ export default function MembersPage() {
         return;
       }
 
-      const loadedMembers = memberData ?? [];
+      const loadedMembers =
+        (memberData ?? []) as Member[];
 
       setMembers(loadedMembers);
 
@@ -79,17 +94,19 @@ export default function MembersPage() {
         return;
       }
 
-      const userNames = loadedMembers.map(
-        (member) => member.user_name
+      const userIds = loadedMembers.map(
+        (member) => member.user_id
       );
 
-      const { data: profileData, error: profileError } =
-        await supabase
-          .from("profiles")
-          .select(
-            "user_name, avatar_url, bio"
-          )
-          .in("user_name", userNames);
+      const {
+        data: profileData,
+        error: profileError,
+      } = await supabase
+        .from("profiles")
+        .select(
+          "user_id, user_name, avatar_url, bio"
+        )
+        .in("user_id", userIds);
 
       if (profileError) {
         console.log(
@@ -99,7 +116,9 @@ export default function MembersPage() {
 
         setProfiles([]);
       } else {
-        setProfiles(profileData ?? []);
+        setProfiles(
+          (profileData ?? []) as Profile[]
+        );
       }
 
       setIsLoading(false);
@@ -108,10 +127,10 @@ export default function MembersPage() {
     fetchMembers();
   }, [currentEventId]);
 
-  function getProfile(userName: string) {
+  function getProfile(userId: string) {
     return profiles.find(
       (profile) =>
-        profile.user_name === userName
+        profile.user_id === userId
     );
   }
 
@@ -127,22 +146,18 @@ export default function MembersPage() {
 
         <section className="mt-7 overflow-hidden rounded-[28px] bg-white shadow-[0_16px_40px_rgba(57,69,54,0.10)]">
           <div className="bg-[#394536] p-6 text-white">
-            <p className="text-xs font-bold tracking-[0.14em] text-white/60">
-              MEMBERS
-            </p>
-
-            <div className="mt-2 flex items-end justify-between">
+            <div className="flex items-end justify-between gap-4">
               <div>
                 <h1 className="text-3xl font-bold">
                   参加メンバー
                 </h1>
 
                 <p className="mt-2 text-sm text-white/70">
-                  一緒に旅をつくるメンバーです。
+                  この旅行の参加者です。
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 px-4 py-3 text-center">
+              <div className="shrink-0 rounded-2xl bg-white/10 px-4 py-3 text-center">
                 <p className="text-xs text-white/60">
                   参加者
                 </p>
@@ -157,12 +172,12 @@ export default function MembersPage() {
           <div className="space-y-3 p-6">
             {isLoading && (
               <p className="text-center text-sm text-[#777c73]">
-                メンバーを読み込んでいます…
+                読み込み中…
               </p>
             )}
 
             {errorMessage && (
-              <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
+              <p className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
                 {errorMessage}
               </p>
             )}
@@ -176,9 +191,10 @@ export default function MembersPage() {
               )}
 
             {!isLoading &&
+              !errorMessage &&
               members.map((member) => {
                 const profile =
-                  getProfile(member.user_name);
+                  getProfile(member.user_id);
 
                 return (
                   <div
@@ -188,9 +204,7 @@ export default function MembersPage() {
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[#f0f2ec]">
                       {profile?.avatar_url ? (
                         <img
-                          src={
-                            profile.avatar_url
-                          }
+                          src={profile.avatar_url}
                           alt={`${member.user_name}のプロフィール画像`}
                           className="h-full w-full object-cover"
                         />
@@ -202,14 +216,19 @@ export default function MembersPage() {
                     </div>
 
                     <div className="min-w-0">
-                      <p className="font-bold text-[#3f453c]">
+                      <p className="truncate font-bold text-[#3f453c]">
                         {member.user_name}
                       </p>
 
-                      <p className="mt-1 truncate text-sm text-[#777c73]">
-                        {profile?.bio ||
-                          "ひとこと未設定"}
-                      </p>
+                      {profile?.bio ? (
+                        <p className="mt-1 line-clamp-2 text-sm leading-5 text-[#777c73]">
+                          {profile.bio}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-sm text-[#9a9e96]">
+                          ひとこと未設定
+                        </p>
+                      )}
                     </div>
                   </div>
                 );

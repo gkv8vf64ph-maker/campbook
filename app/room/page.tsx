@@ -24,25 +24,33 @@ export default function RoomPage() {
   const [currentEventId, setCurrentEventId] =
     useState<number | null>(null);
 
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [roomMembers, setRoomMembers] = useState<RoomMember[]>([]);
+  const [rooms, setRooms] =
+    useState<Room[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [roomMembers, setRoomMembers] =
+    useState<RoomMember[]>([]);
 
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  // 現在のイベントIDを取得
   useEffect(() => {
     const savedEventId = getCurrentEventId();
 
     if (savedEventId) {
       setCurrentEventId(savedEventId);
     } else {
-      setIsLoading(false);
       setErrorMessage(
         "参加中のイベントが見つかりません。"
       );
+      setIsLoading(false);
     }
   }, []);
 
+  // 公開中の部屋とメンバーを取得
   useEffect(() => {
     if (!currentEventId) return;
 
@@ -50,18 +58,19 @@ export default function RoomPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      // 公開中の部屋だけ取得
-      const { data: roomData, error: roomError } =
-        await supabase
-          .from("rooms")
-          .select(
-            "id, event_id, name, sort_order, is_published"
-          )
-          .eq("event_id", currentEventId)
-          .eq("is_published", true)
-          .order("sort_order", {
-            ascending: true,
-          });
+      const {
+        data: roomData,
+        error: roomError,
+      } = await supabase
+        .from("rooms")
+        .select(
+          "id, event_id, name, sort_order, is_published"
+        )
+        .eq("event_id", currentEventId)
+        .eq("is_published", true)
+        .order("sort_order", {
+          ascending: true,
+        });
 
       if (roomError) {
         console.log(
@@ -77,7 +86,8 @@ export default function RoomPage() {
         return;
       }
 
-      const loadedRooms = roomData ?? [];
+      const loadedRooms =
+        (roomData ?? []) as Room[];
 
       setRooms(loadedRooms);
 
@@ -87,20 +97,23 @@ export default function RoomPage() {
         return;
       }
 
-      const roomIds = loadedRooms.map(
-        (room) => room.id
-      );
+      const roomIds =
+        loadedRooms.map(
+          (room) => room.id
+        );
 
-      const { data: memberData, error: memberError } =
-        await supabase
-          .from("room_members")
-          .select(
-            "id, room_id, name, sort_order"
-          )
-          .in("room_id", roomIds)
-          .order("sort_order", {
-            ascending: true,
-          });
+      const {
+        data: memberData,
+        error: memberError,
+      } = await supabase
+        .from("room_members")
+        .select(
+          "id, room_id, name, sort_order"
+        )
+        .in("room_id", roomIds)
+        .order("sort_order", {
+          ascending: true,
+        });
 
       if (memberError) {
         console.log(
@@ -109,14 +122,17 @@ export default function RoomPage() {
         );
 
         setErrorMessage(
-          "部屋メンバーを読み込めませんでした。"
+          "部屋割りを読み込めませんでした。"
         );
 
         setIsLoading(false);
         return;
       }
 
-      setRoomMembers(memberData ?? []);
+      setRoomMembers(
+        (memberData ?? []) as RoomMember[]
+      );
+
       setIsLoading(false);
     }
 
@@ -134,27 +150,23 @@ export default function RoomPage() {
         </Link>
 
         <div className="mt-7">
-          <p className="text-xs font-bold tracking-[0.14em] text-[#7b8475]">
-            ROOM ASSIGNMENT
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold">
+          <h1 className="text-3xl font-bold">
             🏠 部屋割り
           </h1>
 
           <p className="mt-2 text-sm text-[#777c73]">
-            自分の部屋を確認しよう。
+            部屋とメンバーを確認できます。
           </p>
         </div>
 
         {isLoading && (
           <p className="mt-8 text-center text-sm text-[#777c73]">
-            部屋割りを読み込んでいます…
+            読み込み中…
           </p>
         )}
 
         {errorMessage && (
-          <p className="mt-8 rounded-2xl bg-red-50 p-4 text-sm text-red-600">
+          <p className="mt-8 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
             {errorMessage}
           </p>
         )}
@@ -172,21 +184,21 @@ export default function RoomPage() {
               </h2>
 
               <p className="mt-3 text-sm leading-6 text-[#777c73]">
-                部屋割りはまだ公開されていません。
-                <br />
-                当日までお待ちください！
+                公開されるとここに表示されます。
               </p>
             </section>
           )}
 
         {!isLoading &&
+          !errorMessage &&
           rooms.length > 0 && (
             <div className="mt-8 space-y-5">
               {rooms.map((room) => {
                 const members =
                   roomMembers.filter(
                     (member) =>
-                      member.room_id === room.id
+                      member.room_id ===
+                      room.id
                   );
 
                 return (
@@ -195,16 +207,12 @@ export default function RoomPage() {
                     className="overflow-hidden rounded-[28px] bg-white shadow-[0_10px_30px_rgba(57,69,54,0.06)]"
                   >
                     <div className="bg-[#394536] px-6 py-5 text-white">
-                      <p className="text-xs font-bold tracking-[0.12em] text-white/60">
-                        ROOM
-                      </p>
-
-                      <div className="mt-1 flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-4">
                         <h2 className="text-2xl font-bold">
                           {room.name}
                         </h2>
 
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
+                        <span className="shrink-0 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
                           {members.length}人
                         </span>
                       </div>
@@ -217,20 +225,22 @@ export default function RoomPage() {
                         </p>
                       )}
 
-                      {members.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center gap-3 rounded-2xl bg-[#f7f5ef] p-4"
-                        >
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e9eee6]">
-                            👤
-                          </div>
+                      {members.map(
+                        (member) => (
+                          <div
+                            key={member.id}
+                            className="flex items-center gap-3 rounded-2xl bg-[#f7f5ef] p-4"
+                          >
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e9eee6]">
+                              👤
+                            </div>
 
-                          <p className="font-semibold text-[#3f453c]">
-                            {member.name}
-                          </p>
-                        </div>
-                      ))}
+                            <p className="min-w-0 truncate font-semibold text-[#3f453c]">
+                              {member.name}
+                            </p>
+                          </div>
+                        )
+                      )}
                     </div>
                   </section>
                 );

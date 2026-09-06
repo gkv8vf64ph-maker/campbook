@@ -17,34 +17,35 @@ type JoinedEvent = {
 export default function HistoryPage() {
   const router = useRouter();
 
-  const [events, setEvents] = useState<JoinedEvent[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [events, setEvents] =
+    useState<JoinedEvent[]>([]);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState("");
 
   useEffect(() => {
     async function fetchHistory() {
-      // ログイン中のユーザーを取得
-const {
-  data: { user },
-  error: userError,
-} = await supabase.auth.getUser();
-
-if (userError || !user) {
-  setErrorMessage(
-    "過去のしおりを見るにはログインしてください。"
-  );
-  setIsLoading(false);
-  return;
-}
-
-      // このユーザーが参加したイベントIDを取得
       const {
-  data: memberData,
-  error: memberError,
-} = await supabase
-  .from("event_members")
-  .select("event_id")
-  .eq("user_id", user.id);
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        router.replace("/login");
+        return;
+      }
+
+      // 参加したイベントIDを取得
+      const {
+        data: memberData,
+        error: memberError,
+      } = await supabase
+        .from("event_members")
+        .select("event_id")
+        .eq("user_id", user.id);
 
       if (memberError) {
         console.log(
@@ -53,7 +54,7 @@ if (userError || !user) {
         );
 
         setErrorMessage(
-          "参加した合宿を読み込めませんでした。"
+          "参加した旅行を読み込めませんでした。"
         );
 
         setIsLoading(false);
@@ -70,7 +71,7 @@ if (userError || !user) {
         return;
       }
 
-      // 参加したイベント情報を取得
+      // イベント情報を取得
       const {
         data: eventData,
         error: eventError,
@@ -91,14 +92,14 @@ if (userError || !user) {
         );
 
         setErrorMessage(
-          "合宿情報を読み込めませんでした。"
+          "旅行の情報を読み込めませんでした。"
         );
 
         setIsLoading(false);
         return;
       }
 
-      // 終了済みだけ表示
+      // 終了したイベントだけ表示
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -117,11 +118,10 @@ if (userError || !user) {
     }
 
     fetchHistory();
-  }, []);
+  }, [router]);
 
   function openEvent(eventId: number) {
     saveCurrentEventId(eventId);
-
     router.push("/event");
   }
 
@@ -146,22 +146,18 @@ if (userError || !user) {
         </Link>
 
         <div className="mt-8">
-          <p className="text-xs font-bold tracking-[0.16em] text-[#7b8475]">
-            HISTORY
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold">
+          <h1 className="text-3xl font-bold">
             過去のしおり
           </h1>
 
           <p className="mt-2 text-sm leading-6 text-[#777c73]">
-            参加した合宿の思い出を振り返れます。
+            これまで参加した旅行のしおりです。
           </p>
         </div>
 
         {isLoading && (
           <p className="mt-10 text-center text-sm text-[#777c73]">
-            過去のしおりを読み込んでいます…
+            読み込み中…
           </p>
         )}
 
@@ -184,7 +180,7 @@ if (userError || !user) {
               </h2>
 
               <p className="mt-2 text-sm leading-6 text-[#777c73]">
-                終了した合宿がここに表示されます。
+                終了した旅行がここに表示されます。
               </p>
             </div>
           )}
@@ -222,7 +218,10 @@ if (userError || !user) {
                   </span>
                 </div>
 
-                <span className="mt-2 text-2xl text-[#a1a69d]">
+                <span
+                  className="mt-2 text-2xl text-[#a1a69d]"
+                  aria-hidden="true"
+                >
                   ›
                 </span>
               </div>

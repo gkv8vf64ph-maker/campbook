@@ -87,9 +87,7 @@ export default function CautionPage() {
 
         <div className="mt-7 overflow-hidden rounded-[28px] bg-white shadow-[0_16px_40px_rgba(57,69,54,0.10)]">
           <div className="bg-[#394536] p-6 text-white">
-            <p className="text-xs font-bold tracking-[0.14em] text-white/60">
-              CAUTION
-            </p>
+            
 
             <h1 className="mt-2 text-3xl font-bold">
               注意事項
@@ -104,7 +102,7 @@ export default function CautionPage() {
             {/* 読み込み中 */}
             {isLoading && (
               <p className="py-6 text-center text-sm text-[#777c73]">
-                注意事項を読み込んでいます…
+                読み込み中…
               </p>
             )}
 

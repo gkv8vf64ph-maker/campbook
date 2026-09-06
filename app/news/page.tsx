@@ -18,24 +18,30 @@ export default function NewsPage() {
   const [currentEventId, setCurrentEventId] =
     useState<number | null>(null);
 
-  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [newsItems, setNewsItems] =
+    useState<NewsItem[]>([]);
 
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [isLoading, setIsLoading] =
+    useState(true);
 
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  // 現在のイベントIDを取得
   useEffect(() => {
     const savedEventId = getCurrentEventId();
 
     if (savedEventId) {
       setCurrentEventId(savedEventId);
     } else {
-      setIsLoading(false);
       setErrorMessage(
         "参加中のイベントが見つかりません。"
       );
+      setIsLoading(false);
     }
   }, []);
 
+  // お知らせを取得
   useEffect(() => {
     if (!currentEventId) return;
 
@@ -67,25 +73,29 @@ export default function NewsPage() {
         return;
       }
 
-      setNewsItems(data ?? []);
+      setNewsItems(
+        (data ?? []) as NewsItem[]
+      );
+
       setIsLoading(false);
     }
 
     fetchNews();
   }, [currentEventId]);
 
-  function formatDate(createdAt: string) {
-    return new Date(createdAt).toLocaleDateString(
-      "ja-JP",
-      {
-        month: "numeric",
-        day: "numeric",
-      }
-    );
+  function formatDate(
+    createdAt: string
+  ) {
+    return new Date(
+      createdAt
+    ).toLocaleDateString("ja-JP", {
+      month: "numeric",
+      day: "numeric",
+    });
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f1e9] p-6">
+    <main className="min-h-screen bg-[#f4f1e9] p-6 text-[#252720]">
       <div className="mx-auto max-w-md">
         <Link
           href="/event"
@@ -96,11 +106,7 @@ export default function NewsPage() {
 
         <div className="mt-7 overflow-hidden rounded-[28px] bg-white shadow-[0_16px_40px_rgba(57,69,54,0.10)]">
           <div className="bg-[#394536] p-6 text-white">
-            <p className="text-xs font-bold tracking-[0.14em] text-white/60">
-              NEWS
-            </p>
-
-            <h1 className="mt-2 text-3xl font-bold">
+            <h1 className="text-3xl font-bold">
               お知らせ
             </h1>
 
@@ -112,12 +118,12 @@ export default function NewsPage() {
           <div className="space-y-5 p-6">
             {isLoading && (
               <p className="py-5 text-center text-sm text-[#777c73]">
-                お知らせを読み込んでいます…
+                読み込み中…
               </p>
             )}
 
             {errorMessage && (
-              <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-600">
+              <p className="rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
                 {errorMessage}
               </p>
             )}
@@ -126,36 +132,40 @@ export default function NewsPage() {
               !errorMessage &&
               newsItems.length === 0 && (
                 <div className="rounded-2xl bg-[#f7f5ef] p-7 text-center">
-                  <p className="text-3xl">📢</p>
+                  <p className="text-3xl">
+                    📢
+                  </p>
 
                   <p className="mt-3 font-bold text-[#394536]">
                     お知らせはありません
                   </p>
 
                   <p className="mt-2 text-sm text-[#777c73]">
-                    新しいお知らせが追加されると、
-                    ここに表示されます。
+                    新しいお知らせがここに表示されます。
                   </p>
                 </div>
               )}
 
             {!isLoading &&
+              !errorMessage &&
               newsItems.map((item) => (
                 <article
                   key={item.id}
                   className="rounded-2xl border border-[#ece9e2] p-5"
                 >
                   <p className="text-xs font-bold text-[#8a8f84]">
-                    {formatDate(item.created_at)}
+                    {formatDate(
+                      item.created_at
+                    )}
                   </p>
 
                   <h2 className="mt-2 text-lg font-bold text-[#394536]">
-  {item.title}
-</h2>
+                    {item.title}
+                  </h2>
 
                   <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-6 text-[#394536]">
-  {item.content}
-</p>
+                    {item.content}
+                  </p>
                 </article>
               ))}
           </div>

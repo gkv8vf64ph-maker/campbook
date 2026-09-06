@@ -22,9 +22,22 @@ type Event = {
   join_code: string;
 };
 
+function getTodayDateKey() {
+  return new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  ).format(new Date());
+}
+
 function JoinPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams =
+    useSearchParams();
 
   const codeFromUrl =
     searchParams
@@ -35,17 +48,28 @@ function JoinPageContent() {
   const [event, setEvent] =
     useState<Event | null>(null);
 
-  const [isLoadingEvent, setIsLoadingEvent] =
-    useState(true);
+  const [
+    isLoadingEvent,
+    setIsLoadingEvent,
+  ] = useState(true);
 
-  const [isJoining, setIsJoining] =
-    useState(false);
+  const [
+    isJoining,
+    setIsJoining,
+  ] = useState(false);
 
-  const [errorMessage, setErrorMessage] =
-    useState("");
+  const [
+    errorMessage,
+    setErrorMessage,
+  ] = useState("");
 
+  // 参加コードから旅行を取得
   useEffect(() => {
     async function fetchEvent() {
+      setIsLoadingEvent(true);
+      setErrorMessage("");
+      setEvent(null);
+
       if (!codeFromUrl) {
         setErrorMessage(
           "旅行コードがありません。トップページから参加してください。"
@@ -56,13 +80,12 @@ function JoinPageContent() {
       }
 
       const { data, error } =
-        await supabase
-          .from("events")
-          .select(
-            "id, title, location, start_date, end_date, join_code"
-          )
-          .ilike("join_code", codeFromUrl)
-          .maybeSingle();
+        await supabase.rpc(
+          "get_event_by_join_code",
+          {
+            input_code: codeFromUrl,
+          }
+        );
 
       if (error) {
         console.log(
@@ -71,23 +94,31 @@ function JoinPageContent() {
         );
 
         setErrorMessage(
-          "イベントを読み込めませんでした。"
+          "旅行の情報を読み込めませんでした。"
         );
 
         setIsLoadingEvent(false);
         return;
       }
 
-      if (!data) {
+      const foundEvent =
+        Array.isArray(data)
+          ? data[0]
+          : null;
+
+      if (!foundEvent) {
         setErrorMessage(
-          "イベントが見つかりませんでした。"
+          "旅行が見つかりませんでした。"
         );
 
         setIsLoadingEvent(false);
         return;
       }
 
-      setEvent(data as Event);
+      setEvent(
+        foundEvent as Event
+      );
+
       setIsLoadingEvent(false);
     }
 
@@ -95,14 +126,9 @@ function JoinPageContent() {
   }, [codeFromUrl]);
 
   async function handleJoin() {
-    if (!event) {
-      setErrorMessage(
-        "参加するイベントが見つかりません。"
-      );
+    if (!event || isJoining) {
       return;
     }
-
-    if (isJoining) return;
 
     setIsJoining(true);
     setErrorMessage("");
@@ -112,11 +138,14 @@ function JoinPageContent() {
       error: userError,
     } = await supabase.auth.getUser();
 
+    // 未ログインなら参加コードを保存してログインへ
     if (userError || !user) {
-      setErrorMessage(
-        "合宿に参加するにはログインしてください。"
+      localStorage.setItem(
+        "campbook-pending-join-code",
+        event.join_code
       );
-      setIsJoining(false);
+
+      router.push("/login");
       return;
     }
 
@@ -129,14 +158,24 @@ function JoinPageContent() {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (profileError || !profile) {
+    if (
+      profileError ||
+      !profile
+    ) {
+      console.log(
+        "プロフィール取得エラー:",
+        profileError?.message
+      );
+
       setErrorMessage(
         "プロフィールを取得できませんでした。"
       );
+
       setIsJoining(false);
       return;
     }
 
+    // すでに参加済みか確認
     const {
       data: existingMember,
       error: memberCheckError,
@@ -162,35 +201,41 @@ function JoinPageContent() {
     }
 
     if (existingMember) {
-      saveCurrentEventId(event.id);
+      saveCurrentEventId(
+        event.id
+      );
+
+      localStorage.removeItem(
+        "campbook-pending-join-code"
+      );
+
       router.push("/event");
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // 終了済みの旅行には新規参加できない
+    const today =
+      getTodayDateKey();
 
-    const endDate = new Date(
-      `${event.end_date}T00:00:00`
-    );
-
-    if (today > endDate) {
+    if (today > event.end_date) {
       setErrorMessage(
-        "この合宿は終了しているため、新しく参加することはできません。"
+        "この旅行は終了しているため、新しく参加できません。"
       );
 
       setIsJoining(false);
       return;
     }
 
-    const { error: memberInsertError } =
-      await supabase
-        .from("event_members")
-        .insert({
-          event_id: event.id,
-          user_id: user.id,
-          user_name: profile.user_name,
-        });
+    const {
+      error: memberInsertError,
+    } = await supabase
+      .from("event_members")
+      .insert({
+        event_id: event.id,
+        user_id: user.id,
+        user_name:
+          profile.user_name,
+      });
 
     if (memberInsertError) {
       console.log(
@@ -199,14 +244,21 @@ function JoinPageContent() {
       );
 
       setErrorMessage(
-        "イベントへの参加登録に失敗しました。"
+        "しおりへの参加に失敗しました。"
       );
 
       setIsJoining(false);
       return;
     }
 
-    saveCurrentEventId(event.id);
+    saveCurrentEventId(
+      event.id
+    );
+
+    localStorage.removeItem(
+      "campbook-pending-join-code"
+    );
+
     router.push("/event");
   }
 
@@ -214,7 +266,7 @@ function JoinPageContent() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f4f1e9]">
         <p className="text-sm font-semibold text-[#73776f]">
-          しおりを確認しています…
+          読み込み中…
         </p>
       </main>
     );
@@ -231,26 +283,18 @@ function JoinPageContent() {
         </Link>
 
         <div className="mt-10">
-          <p className="text-xs font-bold tracking-[0.16em] text-[#7b8475]">
-            JOIN CAMP
-          </p>
-
-          <h1 className="mt-2 text-3xl font-bold">
+          <h1 className="text-3xl font-bold">
             しおりに参加
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-[#777c73]">
-            この合宿のしおりに参加します。
+            参加する旅行を確認してください。
           </p>
         </div>
 
         {event && (
           <section className="mt-7 rounded-[26px] bg-[#394536] p-5 text-white">
-            <p className="text-xs font-bold tracking-[0.14em] text-white/60">
-              JOINING
-            </p>
-
-            <h2 className="mt-2 text-2xl font-bold">
+            <h2 className="text-2xl font-bold">
               {event.title}
             </h2>
 
@@ -264,27 +308,23 @@ function JoinPageContent() {
 
         <div className="mt-7 rounded-[28px] bg-white p-6 shadow-sm">
           {errorMessage && (
-            <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
+            <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
               {errorMessage}
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={handleJoin}
-            disabled={isJoining || !event}
-            className="mt-6 w-full rounded-2xl bg-[#5d6b56] py-4 font-bold text-white transition hover:bg-[#4d5a47] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isJoining
-              ? "参加しています…"
-              : "このしおりに参加する"}
-          </button>
-        </div>
-
-        <div className="mt-6 rounded-2xl bg-[#e8ede4] p-4">
-          <p className="text-sm leading-6 text-[#687562]">
-            この名前は、投稿・コメント・リアクションなどに表示されます。
-          </p>
+          {event && (
+            <button
+              type="button"
+              onClick={handleJoin}
+              disabled={isJoining}
+              className="w-full rounded-2xl bg-[#5d6b56] py-4 font-bold text-white transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isJoining
+                ? "参加中…"
+                : "このしおりに参加する"}
+            </button>
+          )}
         </div>
       </div>
     </main>
@@ -297,7 +337,7 @@ export default function JoinPage() {
       fallback={
         <main className="flex min-h-screen items-center justify-center bg-[#f4f1e9]">
           <p className="text-sm font-semibold text-[#73776f]">
-            しおりを確認しています…
+            読み込み中…
           </p>
         </main>
       }
