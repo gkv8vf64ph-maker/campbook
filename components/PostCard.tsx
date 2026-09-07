@@ -39,7 +39,13 @@ type Profile = {
   avatar_url: string | null;
 };
 
-const reactionTypes = ["❤️", "😂", "🔥", "👏", "😳"];
+const reactionTypes = [
+  "❤️",
+  "😂",
+  "🔥",
+  "👏",
+  "😳",
+];
 
 export default function PostCard({
   postId,
@@ -50,41 +56,94 @@ export default function PostCard({
   emoji,
   image,
 }: PostCardProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [isCommentOpen, setIsCommentOpen] = useState(false);
-  const [commentCount, setCommentCount] = useState(0);
+  const [isOpen, setIsOpen] =
+    useState(false);
 
-  const [isFaceCameraOpen, setIsFaceCameraOpen] = useState(false);
-  const [faceReactions, setFaceReactions] = useState<FaceReaction[]>([]);
-  const [isFaceUploading, setIsFaceUploading] = useState(false);
+  const [
+    isCommentOpen,
+    setIsCommentOpen,
+  ] = useState(false);
 
-  const [selectedFaceReaction, setSelectedFaceReaction] =
-    useState<FaceReaction | null>(null);
+  const [
+    commentCount,
+    setCommentCount,
+  ] = useState(0);
 
-  const [reactions, setReactions] = useState<Reaction[]>([]);
-  const [reactionLoading, setReactionLoading] =
-    useState<string | null>(null);
-  const [isReactionPickerOpen, setIsReactionPickerOpen] =
-  useState(false);
+  const [
+    isFaceCameraOpen,
+    setIsFaceCameraOpen,
+  ] = useState(false);
 
-const [hoveredReaction, setHoveredReaction] =
-  useState<string | null>(null);
+  const [
+    faceReactions,
+    setFaceReactions,
+  ] = useState<FaceReaction[]>([]);
 
-const reactionButtonRef =
-  useRef<HTMLButtonElement | null>(null);
+  const [
+    isFaceUploading,
+    setIsFaceUploading,
+  ] = useState(false);
 
-const longPressTimer =
-  useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [
+    selectedFaceReaction,
+    setSelectedFaceReaction,
+  ] = useState<FaceReaction | null>(
+    null
+  );
 
-const didLongPress = useRef(false);
+  const [
+    isFaceReactionListOpen,
+    setIsFaceReactionListOpen,
+  ] = useState(false);
 
-  const [currentUser, setCurrentUser] = useState("");
-  const [currentUserId, setCurrentUserId] =
-    useState<string | null>(null);
+  const [
+    reactions,
+    setReactions,
+  ] = useState<Reaction[]>([]);
 
-  const [currentProfile, setCurrentProfile] =
-    useState<Profile | null>(null);
+  const [
+    reactionLoading,
+    setReactionLoading,
+  ] = useState<string | null>(null);
 
+  const [
+    isReactionPickerOpen,
+    setIsReactionPickerOpen,
+  ] = useState(false);
+
+  const [
+    hoveredReaction,
+    setHoveredReaction,
+  ] = useState<string | null>(null);
+
+  const reactionButtonRef =
+    useRef<HTMLButtonElement | null>(
+      null
+    );
+
+  const longPressTimer =
+    useRef<
+      ReturnType<typeof setTimeout> | null
+    >(null);
+
+  const didLongPress = useRef(false);
+
+  const [
+    currentUser,
+    setCurrentUser,
+  ] = useState("");
+
+  const [
+    currentUserId,
+    setCurrentUserId,
+  ] = useState<string | null>(null);
+
+  const [
+    currentProfile,
+    setCurrentProfile,
+  ] = useState<Profile | null>(null);
+
+  // 投稿者プロフィール
   useEffect(() => {
     async function fetchProfile() {
       if (!postUserId) {
@@ -92,11 +151,17 @@ const didLongPress = useRef(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("user_name, avatar_url")
-        .eq("user_id", postUserId)
-        .maybeSingle();
+      const { data, error } =
+        await supabase
+          .from("profiles")
+          .select(
+            "user_name, avatar_url"
+          )
+          .eq(
+            "user_id",
+            postUserId
+          )
+          .maybeSingle();
 
       if (error) {
         console.error(
@@ -106,30 +171,46 @@ const didLongPress = useRef(false);
         return;
       }
 
-      setCurrentProfile(data ?? null);
+      setCurrentProfile(
+        data ?? null
+      );
     }
 
     fetchProfile();
   }, [postUserId]);
 
+  // ログイン中ユーザー
   useEffect(() => {
     async function fetchCurrentUser() {
       const {
-        data: { user: authUser },
-      } = await supabase.auth.getUser();
+        data: {
+          user: authUser,
+        },
+      } =
+        await supabase.auth.getUser();
 
       if (!authUser) return;
 
-      setCurrentUserId(authUser.id);
+      setCurrentUserId(
+        authUser.id
+      );
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("user_name")
-        .eq("user_id", authUser.id)
-        .maybeSingle();
+      const { data: profile } =
+        await supabase
+          .from("profiles")
+          .select("user_name")
+          .eq(
+            "user_id",
+            authUser.id
+          )
+          .maybeSingle();
 
-      if (profile?.user_name) {
-        setCurrentUser(profile.user_name);
+      if (
+        profile?.user_name
+      ) {
+        setCurrentUser(
+          profile.user_name
+        );
       }
     }
 
@@ -139,20 +220,28 @@ const didLongPress = useRef(false);
   // コメント件数
   useEffect(() => {
     async function fetchCommentCount() {
-      const { count, error } = await supabase
+      const {
+        count,
+        error,
+      } = await supabase
         .from("comments")
         .select("*", {
           count: "exact",
           head: true,
         })
-        .eq("post_id", postId);
+        .eq(
+          "post_id",
+          postId
+        );
 
       if (error) {
         console.error(error);
         return;
       }
 
-      setCommentCount(count ?? 0);
+      setCommentCount(
+        count ?? 0
+      );
     }
 
     fetchCommentCount();
@@ -161,36 +250,55 @@ const didLongPress = useRef(false);
   // 通常リアクション
   useEffect(() => {
     async function fetchReactions() {
-      const { data, error } = await supabase
+      const {
+        data,
+        error,
+      } = await supabase
         .from("reactions")
         .select(
           "id, user_id, reaction_type, user_name"
         )
-        .eq("post_id", postId);
+        .eq(
+          "post_id",
+          postId
+        );
 
       if (error) {
         console.error(error);
         return;
       }
 
-      setReactions(data ?? []);
+      setReactions(
+        data ?? []
+      );
     }
 
     fetchReactions();
   }, [postId]);
 
-  // みんなのリアクション
+  // 写真リアクション
   useEffect(() => {
     async function fetchFaceReactions() {
-      const { data, error } = await supabase
-        .from("face_reactions")
+      const {
+        data,
+        error,
+      } = await supabase
+        .from(
+          "face_reactions"
+        )
         .select(
           "id, user_id, user_name, image_url"
         )
-        .eq("post_id", postId)
-        .order("created_at", {
-          ascending: true,
-        });
+        .eq(
+          "post_id",
+          postId
+        )
+        .order(
+          "created_at",
+          {
+            ascending: true,
+          }
+        );
 
       if (error) {
         console.error(
@@ -200,7 +308,9 @@ const didLongPress = useRef(false);
         return;
       }
 
-      setFaceReactions(data ?? []);
+      setFaceReactions(
+        data ?? []
+      );
     }
 
     fetchFaceReactions();
@@ -209,46 +319,70 @@ const didLongPress = useRef(false);
   async function toggleReaction(
     reactionType: string
   ) {
-    if (reactionLoading || !currentUserId) return;
+    if (
+      reactionLoading ||
+      !currentUserId
+    ) {
+      return;
+    }
 
-    setReactionLoading(reactionType);
-
-    const existingReaction = reactions.find(
-      (reaction) =>
-        reaction.user_id === currentUserId &&
-        reaction.reaction_type === reactionType
+    setReactionLoading(
+      reactionType
     );
 
+    const existingReaction =
+      reactions.find(
+        (reaction) =>
+          reaction.user_id ===
+            currentUserId &&
+          reaction.reaction_type ===
+            reactionType
+      );
+
     if (existingReaction) {
-      const { error } = await supabase
-        .from("reactions")
-        .delete()
-        .eq("id", existingReaction.id);
+      const { error } =
+        await supabase
+          .from("reactions")
+          .delete()
+          .eq(
+            "id",
+            existingReaction.id
+          );
 
       if (error) {
         console.error(error);
-        setReactionLoading(null);
+        setReactionLoading(
+          null
+        );
         return;
       }
 
-      setReactions((current) =>
-        current.filter(
-          (reaction) =>
-            reaction.id !== existingReaction.id
-        )
+      setReactions(
+        (current) =>
+          current.filter(
+            (reaction) =>
+              reaction.id !==
+              existingReaction.id
+          )
       );
 
       setReactionLoading(null);
       return;
     }
 
-    const { data, error } = await supabase
+    const {
+      data,
+      error,
+    } = await supabase
       .from("reactions")
       .insert({
         post_id: postId,
-        user_id: currentUserId,
-        user_name: currentUser,
-        reaction_type: reactionType,
+        user_id:
+          currentUserId,
+        user_name:
+          currentUser,
+        reaction_type:
+          reactionType,
       })
       .select(
         "id, user_id, reaction_type, user_name"
@@ -261,10 +395,12 @@ const didLongPress = useRef(false);
       return;
     }
 
-    setReactions((current) => [
-      ...current,
-      data,
-    ]);
+    setReactions(
+      (current) => [
+        ...current,
+        data,
+      ]
+    );
 
     setReactionLoading(null);
   }
@@ -274,118 +410,152 @@ const didLongPress = useRef(false);
   ) {
     return reactions.filter(
       (reaction) =>
-        reaction.reaction_type === reactionType
+        reaction.reaction_type ===
+        reactionType
     ).length;
   }
 
-  function hasReacted(
-    reactionType: string
-  ) {
-    return reactions.some(
-      (reaction) =>
-        reaction.user_id === currentUserId &&
-        reaction.reaction_type === reactionType
-    );
-  }
   function startReactionPress() {
-  didLongPress.current = false;
+    didLongPress.current =
+      false;
 
-  longPressTimer.current = setTimeout(() => {
-    didLongPress.current = true;
-    setIsReactionPickerOpen(true);
-    setHoveredReaction("❤️");
+    longPressTimer.current =
+      setTimeout(() => {
+        didLongPress.current =
+          true;
 
-    if ("vibrate" in navigator) {
-      navigator.vibrate(20);
-    }
-  }, 350);
-}
+        setIsReactionPickerOpen(
+          true
+        );
 
-function cancelLongPressTimer() {
-  if (longPressTimer.current) {
-    clearTimeout(longPressTimer.current);
-    longPressTimer.current = null;
+        setHoveredReaction(
+          "❤️"
+        );
+
+        if (
+          "vibrate" in
+          navigator
+        ) {
+          navigator.vibrate(
+            20
+          );
+        }
+      }, 350);
   }
-}
 
-function updateReactionFromPointer(
-  clientX: number
-) {
-  if (!isReactionPickerOpen) return;
+  function cancelLongPressTimer() {
+    if (
+      longPressTimer.current
+    ) {
+      clearTimeout(
+        longPressTimer.current
+      );
 
-  const button =
-    reactionButtonRef.current;
+      longPressTimer.current =
+        null;
+    }
+  }
 
-  if (!button) return;
+  function updateReactionFromPointer(
+    clientX: number
+  ) {
+    if (
+      !isReactionPickerOpen
+    ) {
+      return;
+    }
 
-  const rect =
-    button.getBoundingClientRect();
+    const button =
+      reactionButtonRef.current;
 
-  const pickerWidth = 260;
+    if (!button) return;
 
-  const pickerLeft =
-    rect.left +
-    rect.width / 2 -
-    pickerWidth / 2;
+    const rect =
+      button.getBoundingClientRect();
 
-  const relativeX =
-    clientX - pickerLeft;
+    const pickerWidth = 260;
 
-  const itemWidth =
-    pickerWidth /
-    reactionTypes.length;
+    const pickerLeft =
+      rect.left +
+      rect.width / 2 -
+      pickerWidth / 2;
 
-  const index = Math.max(
-    0,
-    Math.min(
-      reactionTypes.length - 1,
-      Math.floor(
-        relativeX / itemWidth
+    const relativeX =
+      clientX -
+      pickerLeft;
+
+    const itemWidth =
+      pickerWidth /
+      reactionTypes.length;
+
+    const index = Math.max(
+      0,
+      Math.min(
+        reactionTypes.length -
+          1,
+        Math.floor(
+          relativeX /
+            itemWidth
+        )
       )
-    )
-  );
-
-  const nextReaction =
-    reactionTypes[index];
-
-  if (
-    nextReaction !==
-    hoveredReaction
-  ) {
-    setHoveredReaction(
-      nextReaction
     );
 
-    if ("vibrate" in navigator) {
-      navigator.vibrate(10);
+    const nextReaction =
+      reactionTypes[index];
+
+    if (
+      nextReaction !==
+      hoveredReaction
+    ) {
+      setHoveredReaction(
+        nextReaction
+      );
+
+      if (
+        "vibrate" in
+        navigator
+      ) {
+        navigator.vibrate(
+          10
+        );
+      }
     }
   }
-}
 
-async function finishReactionPress() {
-  cancelLongPressTimer();
+  async function finishReactionPress() {
+    cancelLongPressTimer();
 
-  if (
-    isReactionPickerOpen &&
-    hoveredReaction
-  ) {
-    await toggleReaction(
+    if (
+      isReactionPickerOpen &&
       hoveredReaction
+    ) {
+      await toggleReaction(
+        hoveredReaction
+      );
+    }
+
+    setIsReactionPickerOpen(
+      false
+    );
+
+    setHoveredReaction(
+      null
     );
   }
 
-  setIsReactionPickerOpen(false);
-  setHoveredReaction(null);
-}
+  async function handleQuickReaction() {
+    if (
+      didLongPress.current
+    ) {
+      didLongPress.current =
+        false;
+      return;
+    }
 
-async function handleQuickReaction() {
-  if (didLongPress.current) {
-    didLongPress.current = false;
-    return;
+    await toggleReaction(
+      "❤️"
+    );
   }
-
-  await toggleReaction("❤️");
-}
 
   async function saveFaceReaction(
     file: File
@@ -400,18 +570,27 @@ async function handleQuickReaction() {
     setIsFaceUploading(true);
 
     const extension =
-      file.name.split(".").pop() ?? "jpg";
+      file.name
+        .split(".")
+        .pop() ?? "jpg";
 
     const filePath =
       `face-reactions/${postId}/${crypto.randomUUID()}.${extension}`;
 
-    const { error: uploadError } =
+    const {
+      error: uploadError,
+    } =
       await supabase.storage
         .from("photo")
-        .upload(filePath, file, {
-          contentType: file.type,
-          upsert: false,
-        });
+        .upload(
+          filePath,
+          file,
+          {
+            contentType:
+              file.type,
+            upsert: false,
+          }
+        );
 
     if (uploadError) {
       console.error(
@@ -419,31 +598,44 @@ async function handleQuickReaction() {
         uploadError
       );
 
-      setIsFaceUploading(false);
+      setIsFaceUploading(
+        false
+      );
       return;
     }
 
-    const { data: publicUrlData } =
+    const {
+      data: publicUrlData,
+    } =
       supabase.storage
         .from("photo")
-        .getPublicUrl(filePath);
+        .getPublicUrl(
+          filePath
+        );
 
     const imageUrl =
       publicUrlData.publicUrl;
 
-    const { data, error: insertError } =
-      await supabase
-        .from("face_reactions")
-        .insert({
-          post_id: postId,
-          user_id: currentUserId,
-          user_name: currentUser,
-          image_url: imageUrl,
-        })
-        .select(
-          "id, user_id, user_name, image_url"
-        )
-        .single();
+    const {
+      data,
+      error: insertError,
+    } = await supabase
+      .from(
+        "face_reactions"
+      )
+      .insert({
+        post_id: postId,
+        user_id:
+          currentUserId,
+        user_name:
+          currentUser,
+        image_url:
+          imageUrl,
+      })
+      .select(
+        "id, user_id, user_name, image_url"
+      )
+      .single();
 
     if (insertError) {
       console.error(
@@ -453,18 +645,26 @@ async function handleQuickReaction() {
 
       await supabase.storage
         .from("photo")
-        .remove([filePath]);
+        .remove([
+          filePath,
+        ]);
 
-      setIsFaceUploading(false);
+      setIsFaceUploading(
+        false
+      );
       return;
     }
 
-    setFaceReactions((current) => [
-      ...current,
-      data,
-    ]);
+    setFaceReactions(
+      (current) => [
+        ...current,
+        data,
+      ]
+    );
 
-    setIsFaceUploading(false);
+    setIsFaceUploading(
+      false
+    );
   }
 
   async function handleDeletePost() {
@@ -473,23 +673,31 @@ async function handleQuickReaction() {
         "この投稿を削除しますか？"
       );
 
-    if (!shouldDelete) return;
+    if (!shouldDelete) {
+      return;
+    }
 
-    let postImagePath: string | null =
-      null;
+    let postImagePath:
+      | string
+      | null = null;
 
     if (image) {
       const marker =
         "/storage/v1/object/public/photo/";
 
       const markerIndex =
-        image.indexOf(marker);
+        image.indexOf(
+          marker
+        );
 
-      if (markerIndex !== -1) {
+      if (
+        markerIndex !== -1
+      ) {
         postImagePath =
           decodeURIComponent(
             image.slice(
-              markerIndex + marker.length
+              markerIndex +
+                marker.length
             )
           );
       }
@@ -497,53 +705,78 @@ async function handleQuickReaction() {
 
     const faceImagePaths =
       faceReactions
-        .map((reaction) => {
-          const marker =
-            "/storage/v1/object/public/photo/";
+        .map(
+          (reaction) => {
+            const marker =
+              "/storage/v1/object/public/photo/";
 
-          const markerIndex =
-            reaction.image_url.indexOf(
-              marker
+            const markerIndex =
+              reaction.image_url.indexOf(
+                marker
+              );
+
+            if (
+              markerIndex ===
+              -1
+            ) {
+              return null;
+            }
+
+            return decodeURIComponent(
+              reaction.image_url.slice(
+                markerIndex +
+                  marker.length
+              )
             );
-
-          if (markerIndex === -1) {
-            return null;
           }
-
-          return decodeURIComponent(
-            reaction.image_url.slice(
-              markerIndex + marker.length
-            )
-          );
-        })
+        )
         .filter(
-          (path): path is string =>
+          (
+            path
+          ): path is string =>
             path !== null
         );
 
     await supabase
       .from("comments")
       .delete()
-      .eq("post_id", postId);
+      .eq(
+        "post_id",
+        postId
+      );
 
     await supabase
       .from("reactions")
       .delete()
-      .eq("post_id", postId);
+      .eq(
+        "post_id",
+        postId
+      );
 
     await supabase
-      .from("face_reactions")
+      .from(
+        "face_reactions"
+      )
       .delete()
-      .eq("post_id", postId);
+      .eq(
+        "post_id",
+        postId
+      );
 
     const {
-      error: postDeleteError,
+      error:
+        postDeleteError,
     } = await supabase
       .from("posts")
       .delete()
-      .eq("id", postId);
+      .eq(
+        "id",
+        postId
+      );
 
-    if (postDeleteError) {
+    if (
+      postDeleteError
+    ) {
       console.error(
         "投稿削除エラー:",
         postDeleteError
@@ -553,12 +786,18 @@ async function handleQuickReaction() {
 
     if (postImagePath) {
       const {
-        error: imageDeleteError,
-      } = await supabase.storage
-        .from("photo")
-        .remove([postImagePath]);
+        error:
+          imageDeleteError,
+      } =
+        await supabase.storage
+          .from("photo")
+          .remove([
+            postImagePath,
+          ]);
 
-      if (imageDeleteError) {
+      if (
+        imageDeleteError
+      ) {
         console.error(
           "投稿写真削除エラー:",
           imageDeleteError
@@ -566,14 +805,23 @@ async function handleQuickReaction() {
       }
     }
 
-    if (faceImagePaths.length > 0) {
+    if (
+      faceImagePaths.length >
+      0
+    ) {
       const {
-        error: faceImageDeleteError,
-      } = await supabase.storage
-        .from("photo")
-        .remove(faceImagePaths);
+        error:
+          faceImageDeleteError,
+      } =
+        await supabase.storage
+          .from("photo")
+          .remove(
+            faceImagePaths
+          );
 
-      if (faceImageDeleteError) {
+      if (
+        faceImageDeleteError
+      ) {
         console.error(
           "リアクション画像削除エラー:",
           faceImageDeleteError
@@ -592,12 +840,20 @@ async function handleQuickReaction() {
         "このリアクションを削除しますか？"
       );
 
-    if (!shouldDelete) return;
+    if (!shouldDelete) {
+      return;
+    }
 
-    const { error } = await supabase
-      .from("face_reactions")
-      .delete()
-      .eq("id", reaction.id);
+    const { error } =
+      await supabase
+        .from(
+          "face_reactions"
+        )
+        .delete()
+        .eq(
+          "id",
+          reaction.id
+        );
 
     if (error) {
       console.error(
@@ -607,14 +863,18 @@ async function handleQuickReaction() {
       return;
     }
 
-    setFaceReactions((current) =>
-      current.filter(
-        (item) =>
-          item.id !== reaction.id
-      )
+    setFaceReactions(
+      (current) =>
+        current.filter(
+          (item) =>
+            item.id !==
+            reaction.id
+        )
     );
 
-    setSelectedFaceReaction(null);
+    setSelectedFaceReaction(
+      null
+    );
   }
 
   return (
@@ -625,7 +885,6 @@ async function handleQuickReaction() {
       </div>
 
       <article className="flex-1 overflow-hidden rounded-[26px] bg-white shadow-[0_10px_30px_rgba(57,69,54,0.07)]">
-
         {/* 投稿写真 */}
         <div className="relative aspect-[4/3] w-full overflow-hidden">
           <button
@@ -646,7 +905,6 @@ async function handleQuickReaction() {
         </div>
 
         <div className="p-5">
-
           {/* 投稿者 */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -679,7 +937,7 @@ async function handleQuickReaction() {
             </p>
           </div>
 
-          {/* コメント */}
+          {/* 投稿本文 */}
           <p className="mt-3 text-sm leading-6 text-[#656961]">
             {comment}
           </p>
@@ -697,183 +955,227 @@ async function handleQuickReaction() {
             </button>
           )}
 
-          {/* スライド式リアクション */}
-<div className="relative mt-5">
+          {/* 通常リアクション */}
+          <div className="relative mt-5">
+            {isReactionPickerOpen && (
+              <div className="absolute bottom-[58px] left-0 z-40 flex h-16 w-[260px] items-center justify-around rounded-full border border-[#e7e4dc] bg-white px-2 shadow-[0_12px_35px_rgba(40,50,38,0.18)]">
+                {reactionTypes.map(
+                  (
+                    reactionType
+                  ) => {
+                    const selected =
+                      hoveredReaction ===
+                      reactionType;
 
-  {isReactionPickerOpen && (
-    <div
-      className="absolute bottom-[58px] left-0 z-40 flex h-16 w-[260px] items-center justify-around rounded-full border border-[#e7e4dc] bg-white px-2 shadow-[0_12px_35px_rgba(40,50,38,0.18)]"
-    >
-      {reactionTypes.map(
-        (reactionType) => {
-          const selected =
-            hoveredReaction ===
-            reactionType;
+                    return (
+                      <div
+                        key={
+                          reactionType
+                        }
+                        className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl transition-all duration-100 ${
+                          selected
+                            ? "-translate-y-2 scale-125 bg-[#eef3e9] shadow-md"
+                            : "scale-100"
+                        }`}
+                      >
+                        {
+                          reactionType
+                        }
+                      </div>
+                    );
+                  }
+                )}
+              </div>
+            )}
 
-          return (
-            <div
-              key={reactionType}
-              className={`flex h-12 w-12 items-center justify-center rounded-full text-2xl transition-all duration-100 ${
-                selected
-                  ? "-translate-y-2 scale-125 bg-[#eef3e9] shadow-md"
-                  : "scale-100"
-              }`}
-            >
-              {reactionType}
+            <div className="flex items-center gap-2">
+              <button
+                ref={
+                  reactionButtonRef
+                }
+                type="button"
+                onPointerDown={(
+                  event
+                ) => {
+                  event.currentTarget.setPointerCapture(
+                    event.pointerId
+                  );
+
+                  startReactionPress();
+                }}
+                onPointerMove={(
+                  event
+                ) => {
+                  if (
+                    isReactionPickerOpen
+                  ) {
+                    updateReactionFromPointer(
+                      event.clientX
+                    );
+                  }
+                }}
+                onPointerUp={async () => {
+                  if (
+                    isReactionPickerOpen
+                  ) {
+                    await finishReactionPress();
+                    return;
+                  }
+
+                  cancelLongPressTimer();
+
+                  await handleQuickReaction();
+                }}
+                onPointerCancel={() => {
+                  cancelLongPressTimer();
+
+                  setIsReactionPickerOpen(
+                    false
+                  );
+
+                  setHoveredReaction(
+                    null
+                  );
+                }}
+                onContextMenu={(
+                  event
+                ) =>
+                  event.preventDefault()
+                }
+                disabled={
+                  reactionLoading !==
+                  null
+                }
+                className="touch-none rounded-full bg-[#f5f3ee] px-4 py-2.5 text-sm font-bold text-[#596153] transition active:scale-95"
+              >
+                ♡ リアクション
+              </button>
+
+              <div className="flex items-center -space-x-1">
+                {reactionTypes
+                  .filter(
+                    (
+                      reactionType
+                    ) =>
+                      getReactionCount(
+                        reactionType
+                      ) > 0
+                  )
+                  .map(
+                    (
+                      reactionType
+                    ) => (
+                      <div
+                        key={
+                          reactionType
+                        }
+                        className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-[#eef2e9] px-1.5 text-sm"
+                      >
+                        {
+                          reactionType
+                        }
+                      </div>
+                    )
+                  )}
+
+                {reactions.length >
+                  0 && (
+                  <span className="ml-2 text-xs font-bold text-[#7d8279]">
+                    {
+                      reactions.length
+                    }
+                  </span>
+                )}
+              </div>
             </div>
-          );
-        }
-      )}
-    </div>
-  )}
+          </div>
 
-  <div className="flex items-center gap-2">
-    <button
-      ref={reactionButtonRef}
-      type="button"
-
-      onPointerDown={(event) => {
-        event.currentTarget
-          .setPointerCapture(
-            event.pointerId
-          );
-
-        startReactionPress();
-      }}
-
-      onPointerMove={(event) => {
-        if (
-          isReactionPickerOpen
-        ) {
-          updateReactionFromPointer(
-            event.clientX
-          );
-        }
-      }}
-
-      onPointerUp={async () => {
-        if (
-          isReactionPickerOpen
-        ) {
-          await finishReactionPress();
-          return;
-        }
-
-        cancelLongPressTimer();
-
-        await handleQuickReaction();
-      }}
-
-      onPointerCancel={() => {
-        cancelLongPressTimer();
-        setIsReactionPickerOpen(
-          false
-        );
-        setHoveredReaction(null);
-      }}
-
-      onContextMenu={(event) =>
-        event.preventDefault()
-      }
-
-      disabled={
-        reactionLoading !== null
-      }
-
-      className="touch-none rounded-full bg-[#f5f3ee] px-4 py-2.5 text-sm font-bold text-[#596153] transition active:scale-95"
-    >
-      ♡ リアクション
-    </button>
-
-    <div className="flex items-center -space-x-1">
-      {reactionTypes
-        .filter(
-          (reactionType) =>
-            getReactionCount(
-              reactionType
-            ) > 0
-        )
-        .map(
-          (reactionType) => (
-            <div
-              key={
-                reactionType
-              }
-              className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-[#eef2e9] px-1.5 text-sm"
-            >
-              {reactionType}
-            </div>
-          )
-        )}
-
-      {reactions.length > 0 && (
-        <span className="ml-2 text-xs font-bold text-[#7d8279]">
-          {reactions.length}
-        </span>
-      )}
-    </div>
-  </div>
-</div>
-
-          {/* コメント / 写真リアクション */}
-          <div className="mt-5 flex items-center justify-between border-t border-[#eeece6] pt-4">
+          {/* コメント */}
+          <div className="mt-5 border-t border-[#eeece6] pt-3">
             <button
               type="button"
               onClick={() =>
-                setIsFaceCameraOpen(
+                setIsCommentOpen(
                   true
                 )
               }
-              className="flex items-center gap-1.5 text-sm font-semibold text-[#687562] transition active:scale-95"
+              className="flex w-full items-center justify-between py-2 text-sm font-semibold text-[#687562] transition active:scale-[0.98]"
             >
-              <span>📷</span>
-              <span>
-                みんなのリアクション
-              </span>
+              <div className="flex items-center gap-2">
+                <span>💬</span>
+                <span>
+                  コメント
+                </span>
+              </div>
 
-              {faceReactions.length >
-                0 && (
-                <span className="text-xs text-[#92958e]">
+              <div className="flex items-center gap-2 text-[#92958e]">
+                <span className="text-xs font-bold">
                   {
-                    faceReactions.length
+                    commentCount
                   }
                 </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setIsCommentOpen(true)
-              }
-              className="flex items-center gap-1.5 text-sm font-semibold text-[#687562] transition active:scale-95"
-            >
-              <span>💬</span>
-              <span>コメント</span>
-
-              {commentCount > 0 && (
-                <span className="text-xs text-[#92958e]">
-                  {commentCount}
-                </span>
-              )}
+                <span>›</span>
+              </div>
             </button>
           </div>
 
-          {/* みんなのリアクション一覧 */}
-          {faceReactions.length >
-            0 && (
-            <div className="mt-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold text-[#7b8475]">
-                  いまのリアクション
-                </p>
+          {/* みんなのリアクション */}
+          <div className="mt-2 rounded-[20px] bg-[#f7f6f2] p-4">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() =>
+                  setIsFaceReactionListOpen(
+                    true
+                  )
+                }
+                className="flex items-center gap-2 text-left transition active:scale-[0.98]"
+              >
+                <span className="text-sm font-bold text-[#596153]">
+                  みんなのリアクション
+                </span>
 
-                <p className="text-[11px] text-[#a0a49d]">
-                  タップして見る
-                </p>
-              </div>
+                {faceReactions.length >
+                  0 && (
+                  <span className="text-xs font-bold text-[#92958e]">
+                    {
+                      faceReactions.length
+                    }
+                  </span>
+                )}
 
-              <div className="mt-2 flex -space-x-2">
+                <span className="text-xs text-[#a1a59d]">
+                  ›
+                </span>
+              </button>
+
+              {/* 撮影だけ */}
+              <button
+                type="button"
+                onClick={() =>
+                  setIsFaceCameraOpen(
+                    true
+                  )
+                }
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl shadow-sm transition active:scale-90"
+                aria-label="リアクションを撮る"
+              >
+                📷
+              </button>
+            </div>
+
+            {/* 小さいプレビュー */}
+            {faceReactions.length >
+            0 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setIsFaceReactionListOpen(
+                    true
+                  )
+                }
+                className="mt-3 flex items-center -space-x-2"
+              >
                 {faceReactions
                   .slice(0, 5)
                   .map(
@@ -881,20 +1183,15 @@ async function handleQuickReaction() {
                       reaction,
                       index
                     ) => (
-                      <button
+                      <div
                         key={
                           reaction.id
                         }
-                        type="button"
-                        onClick={() =>
-                          setSelectedFaceReaction(
-                            reaction
-                          )
-                        }
-                        className="relative h-11 w-11 shrink-0 cursor-pointer overflow-hidden rounded-full border-2 border-white ring-1 ring-[#dfe8d8] transition active:scale-95"
+                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white ring-1 ring-[#dfe8d8]"
                         style={{
                           zIndex:
-                            index + 1,
+                            index +
+                            1,
                         }}
                       >
                         <Image
@@ -904,23 +1201,27 @@ async function handleQuickReaction() {
                           alt={`${reaction.user_name}のリアクション`}
                           fill
                           unoptimized
-                          className="pointer-events-none object-cover"
+                          className="object-cover"
                         />
-                      </button>
+                      </div>
                     )
                   )}
 
                 {faceReactions.length >
                   5 && (
-                  <div className="relative z-10 flex h-11 w-11 items-center justify-center rounded-full border-2 border-white bg-[#eef2e9] text-xs font-bold text-[#52644b]">
+                  <div className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-[#e9ede5] text-xs font-bold text-[#596153]">
                     +
                     {faceReactions.length -
                       5}
                   </div>
                 )}
-              </div>
-            </div>
-          )}
+              </button>
+            ) : (
+              <p className="mt-2 text-xs text-[#9a9e96]">
+                まだリアクションはありません
+              </p>
+            )}
+          </div>
         </div>
       </article>
 
@@ -934,7 +1235,9 @@ async function handleQuickReaction() {
         >
           <div
             className="relative h-[80vh] w-[90vw]"
-            onClick={(event) =>
+            onClick={(
+              event
+            ) =>
               event.stopPropagation()
             }
           >
@@ -959,7 +1262,128 @@ async function handleQuickReaction() {
         </div>
       )}
 
-      {/* みんなのリアクション拡大 */}
+      {/* みんなのリアクション一覧 */}
+      {isFaceReactionListOpen && (
+        <div
+          className="fixed inset-0 z-[9998] flex items-end justify-center bg-black/50 sm:items-center sm:px-6"
+          onClick={() =>
+            setIsFaceReactionListOpen(
+              false
+            )
+          }
+        >
+          <div
+            className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-[#f7f4ed] p-6 shadow-2xl sm:rounded-[32px]"
+            onClick={(
+              event
+            ) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-[#394536]">
+                  みんなのリアクション
+                </h2>
+
+                <p className="mt-1 text-xs text-[#8a8e85]">
+                  この投稿を見たみんな
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setIsFaceReactionListOpen(
+                    false
+                  )
+                }
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl text-[#777] shadow-sm"
+                aria-label="閉じる"
+              >
+                ×
+              </button>
+            </div>
+
+            {faceReactions.length >
+            0 ? (
+              <div className="mt-6 grid grid-cols-3 gap-4">
+                {faceReactions.map(
+                  (
+                    reaction
+                  ) => (
+                    <button
+                      key={
+                        reaction.id
+                      }
+                      type="button"
+                      onClick={() => {
+                        setIsFaceReactionListOpen(
+                          false
+                        );
+
+                        setSelectedFaceReaction(
+                          reaction
+                        );
+                      }}
+                      className="text-center transition active:scale-95"
+                    >
+                      <div className="relative mx-auto aspect-square w-full overflow-hidden rounded-[22px] bg-white shadow-sm">
+                        <Image
+                          src={
+                            reaction.image_url
+                          }
+                          alt={`${reaction.user_name}のリアクション`}
+                          fill
+                          unoptimized
+                          className="object-cover"
+                        />
+                      </div>
+
+                      <p className="mt-2 truncate text-xs font-bold text-[#596153]">
+                        {
+                          reaction.user_name
+                        }
+                      </p>
+                    </button>
+                  )
+                )}
+              </div>
+            ) : (
+              <div className="py-12 text-center">
+                <p className="text-3xl">
+                  📷
+                </p>
+
+                <p className="mt-3 text-sm font-semibold text-[#777c73]">
+                  まだリアクションはありません
+                </p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsFaceReactionListOpen(
+                  false
+                );
+
+                setIsFaceCameraOpen(
+                  true
+                );
+              }}
+              className="mt-6 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-[#394536] font-bold text-white transition active:scale-[0.98]"
+            >
+              <span>📷</span>
+              <span>
+                リアクションを撮る
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 1人のリアクション拡大 */}
       {selectedFaceReaction && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 px-6"
@@ -971,7 +1395,9 @@ async function handleQuickReaction() {
         >
           <div
             className="relative w-full max-w-sm rounded-[32px] bg-white p-6 text-center shadow-2xl"
-            onClick={(event) =>
+            onClick={(
+              event
+            ) =>
               event.stopPropagation()
             }
           >
@@ -992,11 +1418,6 @@ async function handleQuickReaction() {
               REACTION
             </p>
 
-            <p className="mt-2 text-sm text-[#8a8e85]">
-              この投稿を見た、
-              いまのリアクション
-            </p>
-
             <div className="relative mx-auto mt-6 h-64 w-64 overflow-hidden rounded-full ring-4 ring-[#dfe8d8]">
               <Image
                 src={
@@ -1013,10 +1434,6 @@ async function handleQuickReaction() {
               {
                 selectedFaceReaction.user_name
               }
-            </p>
-
-            <p className="mt-1 text-sm text-[#8a8e85]">
-              いまのリアクション
             </p>
 
             {selectedFaceReaction.user_id ===
@@ -1037,24 +1454,38 @@ async function handleQuickReaction() {
         </div>
       )}
 
+      {/* コメント */}
       <CommentModal
-        open={isCommentOpen}
+        open={
+          isCommentOpen
+        }
         postId={postId}
         onClose={() =>
-          setIsCommentOpen(false)
+          setIsCommentOpen(
+            false
+          )
         }
         onCommentCountChange={
           setCommentCount
         }
       />
 
+      {/* 撮影 */}
       <FaceReactionCamera
-        open={isFaceCameraOpen}
-        onClose={() =>
-          setIsFaceCameraOpen(false)
+        open={
+          isFaceCameraOpen
         }
-        onCapture={async (file) => {
-          await saveFaceReaction(file);
+        onClose={() =>
+          setIsFaceCameraOpen(
+            false
+          )
+        }
+        onCapture={async (
+          file
+        ) => {
+          await saveFaceReaction(
+            file
+          );
         }}
       />
     </div>
