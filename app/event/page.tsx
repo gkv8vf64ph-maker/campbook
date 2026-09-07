@@ -374,7 +374,7 @@ export default function EventHome() {
           </p>
 
           <Link
-            href="/join"
+            href="/events"
             className="mt-6 flex h-12 w-full items-center justify-center rounded-2xl bg-[#394536] font-bold text-white"
           >
             しおりに参加
@@ -395,7 +395,7 @@ export default function EventHome() {
         <div className="relative mx-auto max-w-md">
           <div className="flex items-center">
             <Link
-              href="/join"
+              href="/events"
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-xl backdrop-blur"
               aria-label="イベントを変更"
             >
