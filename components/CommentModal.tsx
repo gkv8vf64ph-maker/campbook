@@ -191,6 +191,45 @@ useEffect(() => {
     onCommentCountChange?.(
       updatedComments.length
     );
+    try {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  if (session?.access_token) {
+    const response = await fetch(
+      "/api/push/comment",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Authorization:
+            `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          postId,
+          commentId: data.id,
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (!response.ok) {
+      console.error(
+        "コメント通知エラー:",
+        result
+      );
+    }
+  }
+} catch (error) {
+  console.error(
+    "コメント通知送信エラー:",
+    error
+  );
+}
 
     setIsSending(false);
   }
