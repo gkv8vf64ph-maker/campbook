@@ -156,13 +156,25 @@ useEffect(() => {
 
     setIsSending(true);
     setErrorMessage("");
+    const {
+  data: { user },
+  error: userError,
+} = await supabase.auth.getUser();
+
+if (userError || !user) {
+  setErrorMessage(
+    "ログイン情報を確認できませんでした。"
+  );
+  setIsSending(false);
+  return;
+}
 
     const { data, error } =
       await supabase
         .from("comments")
         .insert({
   post_id: postId,
-  user_id: currentUserId,
+  user_id: user.id,
   user_name: currentUser,
   comment: text,
 })
