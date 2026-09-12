@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import webpush from "web-push";
-import { createSecretKey } from "crypto";
+
 
 export const runtime = "nodejs";
 
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
     } = await adminSupabase
       .from("posts")
       .select(
-        "id, user_id"
+        "id, user_id, event_id"
       )
       .eq("id", postId)
       .maybeSingle();
@@ -276,7 +276,9 @@ export async function POST(request: NextRequest) {
             body:
               `あなたの投稿に「${reactionType}」をつけました`,
 
-            url: "/timeline",
+            url: `/notification?eventId=${post.event_id}&to=${encodeURIComponent(
+  "/timeline"
+)}`,
           })
         );
 

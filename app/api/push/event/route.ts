@@ -220,11 +220,14 @@ export async function POST(request: NextRequest) {
       privateKey
     );
 
-    const payload = JSON.stringify({
-      title: title.trim(),
-      body: body.trim(),
-      url,
-    });
+    const notificationUrl =
+  `/notification?eventId=${eventId}&to=${encodeURIComponent(url)}`;
+
+const payload = JSON.stringify({
+  title: title.trim(),
+  body: body.trim(),
+  url: notificationUrl,
+});
 
     let successCount = 0;
 let failureCount = 0;
