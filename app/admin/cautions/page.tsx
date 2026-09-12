@@ -26,6 +26,11 @@ export default function AdminCautionsPage() {
   const [isSaving, setIsSaving] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] =
+  useState("");
+
+const [sendNotification, setSendNotification] =
+  useState(false);
 
   useEffect(() => {
     const savedEventId = getCurrentEventId();
@@ -105,7 +110,8 @@ export default function AdminCautionsPage() {
     if (isSaving) return;
 
     setIsSaving(true);
-    setErrorMessage("");
+setErrorMessage("");
+setSuccessMessage("");
 
     const nextSortOrder =
       cautions.length > 0
@@ -144,13 +150,88 @@ export default function AdminCautionsPage() {
     }
 
     setCautions((current) => [
-      ...current,
-      data,
-    ]);
+  ...current,
+  data,
+]);
 
-    setTitle("");
-    setDescription("");
-    setIsSaving(false);
+if (sendNotification) {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.access_token
+    ) {
+      console.log(
+        "通知用ログイン情報取得エラー:",
+        sessionError
+      );
+
+      setSuccessMessage(
+        "注意事項は追加しましたが、通知は送信できませんでした。"
+      );
+    } else {
+      const response = await fetch(
+        "/api/push/event",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            Authorization:
+              `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            eventId: currentEventId,
+            title:
+              "⚠️ 注意事項が追加されました",
+            body: title.trim(),
+            url: "/caution",
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        console.log(
+          "注意事項Push通知エラー:",
+          result
+        );
+
+        setSuccessMessage(
+          "注意事項は追加しましたが、通知は送信できませんでした。"
+        );
+      } else {
+        setSuccessMessage(
+          `注意事項を追加し、${result.sent}台に通知しました 🔔`
+        );
+      }
+    }
+  } catch (notificationError) {
+    console.log(
+      "注意事項通知送信エラー:",
+      notificationError
+    );
+
+    setSuccessMessage(
+      "注意事項は追加しましたが、通知は送信できませんでした。"
+    );
+  }
+} else {
+  setSuccessMessage(
+    "注意事項を追加しました。"
+  );
+}
+
+setTitle("");
+setDescription("");
+setSendNotification(false);
+setIsSaving(false);
   }
 
   async function handleDeleteCaution(
@@ -251,12 +332,39 @@ export default function AdminCautionsPage() {
               className="mt-2 min-h-28 w-full resize-none rounded-2xl border border-[#dedfd9] px-4 py-3 outline-none focus:border-[#5d6b56]"
             />
           </div>
+          <label className="mt-5 flex cursor-pointer items-center justify-between rounded-2xl bg-[#f4f6f1] p-4">
+  <div>
+    <p className="text-sm font-bold text-[#394536]">
+      参加者へ通知する
+    </p>
+
+    <p className="mt-1 text-xs leading-5 text-[#81867d]">
+      この注意事項を追加したことをPush通知します
+    </p>
+  </div>
+
+  <input
+    type="checkbox"
+    checked={sendNotification}
+    onChange={(event) =>
+      setSendNotification(
+        event.target.checked
+      )
+    }
+    className="h-5 w-5 accent-[#394536]"
+  />
+</label>
 
           {errorMessage && (
             <p className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
               {errorMessage}
             </p>
           )}
+          {successMessage && (
+  <p className="mt-5 rounded-2xl bg-[#eef2e9] p-4 text-sm font-medium text-[#394536]">
+    {successMessage}
+  </p>
+)}
 
           <button
             type="button"

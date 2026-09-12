@@ -38,6 +38,8 @@ export default function AdminRoomsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] =
+  useState("");
 
   useEffect(() => {
     const savedEventId = getCurrentEventId();
@@ -373,40 +375,128 @@ setIsLoading(false);
   }
 
   async function togglePublished(room: Room) {
-    const nextPublished = !room.is_published;
+  if (!currentEventId) return;
 
-    const { error } = await supabase
-      .from("rooms")
-      .update({
-        is_published: nextPublished,
-      })
-      .eq("id", room.id);
+  const nextPublished =
+    !room.is_published;
 
-    if (error) {
+  setErrorMessage("");
+  setSuccessMessage("");
+
+  const { error } = await supabase
+    .from("rooms")
+    .update({
+      is_published: nextPublished,
+    })
+    .eq("id", room.id)
+    .eq("event_id", currentEventId);
+
+  if (error) {
+    console.log(
+      "公開状態変更エラー:",
+      error.message
+    );
+
+    setErrorMessage(
+      "公開状態を変更できませんでした。"
+    );
+
+    return;
+  }
+
+  setRooms((current) =>
+    current.map((item) =>
+      item.id === room.id
+        ? {
+            ...item,
+            is_published:
+              nextPublished,
+          }
+        : item
+    )
+  );
+
+  // 未公開に戻した場合は通知しない
+  if (!nextPublished) {
+    setSuccessMessage(
+      `${room.name}を未公開にしました。`
+    );
+    return;
+  }
+
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.access_token
+    ) {
       console.log(
-        "公開状態変更エラー:",
-        error.message
+        "通知用ログイン情報取得エラー:",
+        sessionError
       );
 
-      setErrorMessage(
-        "公開状態を変更できませんでした。"
+      setSuccessMessage(
+        `${room.name}を公開しましたが、通知は送信できませんでした。`
       );
 
       return;
     }
 
-    setRooms((current) =>
-      current.map((item) =>
-        item.id === room.id
-          ? {
-              ...item,
-              is_published:
-                nextPublished,
-            }
-          : item
-      )
+    const response = await fetch(
+      "/api/push/event",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+          Authorization:
+            `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          eventId: currentEventId,
+          title:
+            "🛏️ 部屋割りが公開されました",
+          body:
+            "自分の部屋を確認してみよう！",
+          url: "/room",
+        }),
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (!response.ok) {
+      console.log(
+        "部屋割りPush通知エラー:",
+        result
+      );
+
+      setSuccessMessage(
+        `${room.name}を公開しましたが、通知は送信できませんでした。`
+      );
+
+      return;
+    }
+
+    setSuccessMessage(
+      `${room.name}を公開し、${result.sent}台に通知しました 🔔`
+    );
+  } catch (notificationError) {
+    console.log(
+      "部屋割り通知送信エラー:",
+      notificationError
+    );
+
+    setSuccessMessage(
+      `${room.name}を公開しましたが、通知は送信できませんでした。`
     );
   }
+}
 
   const assignedUserIds = useMemo(() => {
     return new Set(
@@ -453,11 +543,17 @@ setIsLoading(false);
           </p>
         </div>
 
+
         {errorMessage && (
           <p className="mt-6 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
             {errorMessage}
           </p>
         )}
+        {successMessage && (
+  <p className="mt-6 rounded-2xl bg-[#eef2e9] p-4 text-sm font-medium text-[#394536]">
+    {successMessage}
+  </p>
+)}
 
         <section className="mt-7 rounded-[28px] bg-white p-6 shadow-[0_10px_30px_rgba(57,69,54,0.06)]">
           <p className="text-sm font-bold text-[#394536]">

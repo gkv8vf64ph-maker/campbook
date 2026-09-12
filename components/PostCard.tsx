@@ -112,6 +112,11 @@ export default function PostCard({
   ] = useState(false);
 
   const [
+  isReactionListOpen,
+  setIsReactionListOpen,
+] = useState(false);
+
+  const [
     hoveredReaction,
     setHoveredReaction,
   ] = useState<string | null>(null);
@@ -1051,42 +1056,38 @@ export default function PostCard({
                 ♡ リアクション
               </button>
 
-              <div className="flex items-center -space-x-1">
-                {reactionTypes
-                  .filter(
-                    (
-                      reactionType
-                    ) =>
-                      getReactionCount(
-                        reactionType
-                      ) > 0
-                  )
-                  .map(
-                    (
-                      reactionType
-                    ) => (
-                      <div
-                        key={
-                          reactionType
-                        }
-                        className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-[#eef2e9] px-1.5 text-sm"
-                      >
-                        {
-                          reactionType
-                        }
-                      </div>
-                    )
-                  )}
+              {reactions.length > 0 && (
+  <button
+    type="button"
+    onClick={() =>
+      setIsReactionListOpen(true)
+    }
+    className="flex items-center -space-x-1 rounded-full transition active:scale-95"
+    aria-label="リアクションした人を見る"
+  >
+    {reactionTypes
+      .filter(
+        (reactionType) =>
+          getReactionCount(
+            reactionType
+          ) > 0
+      )
+      .map(
+        (reactionType) => (
+          <div
+            key={reactionType}
+            className="flex h-8 min-w-8 items-center justify-center rounded-full border-2 border-white bg-[#eef2e9] px-1.5 text-sm"
+          >
+            {reactionType}
+          </div>
+        )
+      )}
 
-                {reactions.length >
-                  0 && (
-                  <span className="ml-2 text-xs font-bold text-[#7d8279]">
-                    {
-                      reactions.length
-                    }
-                  </span>
-                )}
-              </div>
+    <span className="ml-2 text-xs font-bold text-[#7d8279]">
+      {reactions.length}
+    </span>
+  </button>
+)}
             </div>
           </div>
 
@@ -1261,6 +1262,106 @@ export default function PostCard({
           </button>
         </div>
       )}
+      {/* 通常リアクション一覧 */}
+{isReactionListOpen && (
+  <div
+    className="fixed inset-0 z-[9998] flex items-end justify-center bg-black/50 sm:items-center sm:px-6"
+    onClick={() =>
+      setIsReactionListOpen(false)
+    }
+  >
+    <div
+      className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-t-[32px] bg-[#f7f4ed] p-6 shadow-2xl sm:rounded-[32px]"
+      onClick={(event) =>
+        event.stopPropagation()
+      }
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-[#394536]">
+            リアクション
+          </h2>
+
+          <p className="mt-1 text-xs text-[#8a8e85]">
+            誰がリアクションしたか見られます
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            setIsReactionListOpen(false)
+          }
+          className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl text-[#777] shadow-sm"
+          aria-label="閉じる"
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="mt-6 space-y-3">
+        {reactionTypes
+          .filter(
+            (reactionType) =>
+              getReactionCount(
+                reactionType
+              ) > 0
+          )
+          .map(
+            (reactionType) => {
+              const people =
+                reactions.filter(
+                  (reaction) =>
+                    reaction.reaction_type ===
+                    reactionType
+                );
+
+              return (
+                <div
+                  key={reactionType}
+                  className="rounded-[22px] bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#eef2e9] text-xl">
+                      {reactionType}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-[#394536]">
+                          {reactionType}
+                        </p>
+
+                        <p className="text-xs font-bold text-[#92958e]">
+                          {people.length}
+                        </p>
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {people.map(
+                          (reaction) => (
+                            <span
+                              key={
+                                reaction.id
+                              }
+                              className="rounded-full bg-[#f5f3ee] px-3 py-1.5 text-xs font-bold text-[#596153]"
+                            >
+                              {reaction.user_name ||
+                                "名前なし"}
+                            </span>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+          )}
+      </div>
+    </div>
+  </div>
+)}
 
       {/* みんなのリアクション一覧 */}
       {isFaceReactionListOpen && (

@@ -29,6 +29,8 @@ export default function AdminMeetingPlacePage() {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [sendNotification, setSendNotification] =
+  useState(true);
 
   useEffect(() => {
     const savedEventId = getCurrentEventId();
@@ -169,11 +171,79 @@ export default function AdminMeetingPlacePage() {
       setMeetingPlaceId(data.id);
     }
 
-    setSuccessMessage(
-      "集合場所を保存しました。"
+    if (sendNotification) {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.access_token
+    ) {
+      console.log(
+        "通知用ログイン情報取得エラー:",
+        sessionError
+      );
+
+      setSuccessMessage(
+        "集合場所は保存しましたが、通知は送信できませんでした。"
+      );
+    } else {
+      const response = await fetch(
+        "/api/push/event",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization:
+              `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            eventId: currentEventId,
+            title: "📍 集合場所が更新されました",
+            body: name.trim(),
+            url: "/meeting-place",
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        console.log(
+          "集合場所Push通知エラー:",
+          result
+        );
+
+        setSuccessMessage(
+          "集合場所は保存しましたが、通知は送信できませんでした。"
+        );
+      } else {
+        setSuccessMessage(
+          `集合場所を保存し、${result.sent}台に通知しました 🔔`
+        );
+      }
+    }
+  } catch (notificationError) {
+    console.log(
+      "集合場所通知送信エラー:",
+      notificationError
     );
 
-    setIsSaving(false);
+    setSuccessMessage(
+      "集合場所は保存しましたが、通知は送信できませんでした。"
+    );
+  }
+} else {
+  setSuccessMessage(
+    "集合場所を保存しました。"
+  );
+}
+
+setIsSaving(false);
   }
 
   if (isLoading) {
@@ -267,6 +337,26 @@ export default function AdminMeetingPlacePage() {
               className="mt-2 min-h-32 w-full resize-none rounded-2xl border border-[#dedfd9] px-4 py-3 outline-none focus:border-[#5d6b56]"
             />
           </div>
+          <label className="mt-5 flex cursor-pointer items-center justify-between rounded-2xl bg-[#f4f6f1] p-4">
+  <div>
+    <p className="text-sm font-bold text-[#394536]">
+      参加者へ通知する
+    </p>
+
+    <p className="mt-1 text-xs leading-5 text-[#81867d]">
+      集合場所の登録・変更をPush通知します
+    </p>
+  </div>
+
+  <input
+    type="checkbox"
+    checked={sendNotification}
+    onChange={(event) =>
+      setSendNotification(event.target.checked)
+    }
+    className="h-5 w-5 accent-[#394536]"
+  />
+</label>
 
           {errorMessage && (
             <p className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">

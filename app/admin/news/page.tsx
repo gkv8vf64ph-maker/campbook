@@ -26,6 +26,11 @@ export default function AdminNewsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [sendNotification, setSendNotification] =
+  useState(true);
+
+const [successMessage, setSuccessMessage] =
+  useState("");
 
   useEffect(() => {
     const savedEventId = getCurrentEventId();
@@ -142,13 +147,84 @@ export default function AdminNewsPage() {
     }
 
     setNewsItems((current) => [
-      data,
-      ...current,
-    ]);
+  data,
+  ...current,
+]);
 
-    setTitle("");
-    setContent("");
-    setIsSaving(false);
+if (sendNotification) {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.access_token
+    ) {
+      console.log(
+        "通知用ログイン情報取得エラー:",
+        sessionError
+      );
+
+      setSuccessMessage(
+        "お知らせは追加しましたが、通知は送信できませんでした。"
+      );
+    } else {
+      const response = await fetch(
+        "/api/push/event",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization:
+              `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            eventId: currentEventId,
+            title: `📢 ${title.trim()}`,
+            body: content.trim(),
+            url: "/news",
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.log(
+          "Push通知エラー:",
+          result
+        );
+
+        setSuccessMessage(
+          "お知らせは追加しましたが、通知は送信できませんでした。"
+        );
+      } else {
+        setSuccessMessage(
+          `お知らせを追加し、${result.sent}台に通知しました 🔔`
+        );
+      }
+    }
+  } catch (notificationError) {
+    console.log(
+      "Push通知送信エラー:",
+      notificationError
+    );
+
+    setSuccessMessage(
+      "お知らせは追加しましたが、通知は送信できませんでした。"
+    );
+  }
+} else {
+  setSuccessMessage(
+    "お知らせを追加しました。"
+  );
+}
+
+setTitle("");
+setContent("");
+setIsSaving(false);
   }
 
   async function handleDeleteNews(
@@ -223,9 +299,10 @@ export default function AdminNewsPage() {
               type="text"
               value={title}
               onChange={(event) => {
-                setTitle(event.target.value);
-                setErrorMessage("");
-              }}
+  setTitle(event.target.value);
+  setErrorMessage("");
+  setSuccessMessage("");
+}}
               placeholder="例：集合時間を変更しました"
               className="mt-2 w-full rounded-2xl border border-[#dedfd9] px-4 py-3 outline-none focus:border-[#5d6b56]"
             />
@@ -239,19 +316,47 @@ export default function AdminNewsPage() {
             <textarea
               value={content}
               onChange={(event) => {
-                setContent(event.target.value);
-                setErrorMessage("");
-              }}
+  setContent(event.target.value);
+  setErrorMessage("");
+  setSuccessMessage("");
+}}
               placeholder="例：集合時間を10:30に変更しました。"
               className="mt-2 min-h-32 w-full resize-none rounded-2xl border border-[#dedfd9] px-4 py-3 outline-none focus:border-[#5d6b56]"
             />
           </div>
+          <label className="mt-5 flex cursor-pointer items-center justify-between rounded-2xl bg-[#f4f6f1] p-4">
+  <div>
+    <p className="text-sm font-bold text-[#394536]">
+      参加者へ通知する
+    </p>
+
+    <p className="mt-1 text-xs leading-5 text-[#81867d]">
+      このイベントの参加者へPush通知を送ります
+    </p>
+  </div>
+
+  <input
+    type="checkbox"
+    checked={sendNotification}
+    onChange={(event) =>
+      setSendNotification(
+        event.target.checked
+      )
+    }
+    className="h-5 w-5 accent-[#394536]"
+  />
+</label>
 
           {errorMessage && (
             <p className="mt-5 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
               {errorMessage}
             </p>
           )}
+          {successMessage && (
+  <p className="mt-5 rounded-2xl bg-[#eef2e9] p-4 text-sm font-medium text-[#394536]">
+    {successMessage}
+  </p>
+)}
 
           <button
             type="button"

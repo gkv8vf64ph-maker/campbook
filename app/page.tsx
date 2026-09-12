@@ -8,12 +8,25 @@ import {
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import {
+  getCurrentEventId,
+  saveCurrentEventId,
+} from "@/lib/currentEvent";
 
 export default function Home() {
   const router = useRouter();
 
   const [isLoggedIn, setIsLoggedIn] =
     useState(false);
+  const [
+  hasJoinedEvent,
+  setHasJoinedEvent,
+] = useState(false);
+
+const [
+  isCheckingEvents,
+  setIsCheckingEvents,
+] = useState(true);
 
   const [tripCode, setTripCode] =
     useState("");
@@ -25,16 +38,82 @@ export default function Home() {
     useState(false);
 
   useEffect(() => {
-    async function checkLogin() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  async function checkLoginAndEvents() {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      setIsLoggedIn(!!user);
+    setIsLoggedIn(!!user);
+
+    if (!user) {
+      setHasJoinedEvent(false);
+      setIsCheckingEvents(false);
+      return;
     }
 
-    checkLogin();
-  }, []);
+    const {
+      data: memberships,
+      error: membershipError,
+    } = await supabase
+      .from("event_members")
+      .select("event_id, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", {
+        ascending: false,
+      });
+
+    if (membershipError) {
+      console.log(
+        "参加イベント取得エラー:",
+        membershipError.message
+      );
+
+      setIsCheckingEvents(false);
+      return;
+    }
+
+    if (
+      !memberships ||
+      memberships.length === 0
+    ) {
+      setHasJoinedEvent(false);
+      setIsCheckingEvents(false);
+      return;
+    }
+
+    const savedEventId =
+      getCurrentEventId();
+
+    const savedEventStillJoined =
+      savedEventId
+        ? memberships.some(
+            (membership) =>
+              membership.event_id ===
+              savedEventId
+          )
+        : false;
+
+    // 前回開いていたイベントがまだ参加中ならそのまま使う
+    if (savedEventStillJoined) {
+      setHasJoinedEvent(true);
+      setIsCheckingEvents(false);
+      return;
+    }
+
+    // なければ一番最近参加したイベントを現在のイベントにする
+    const latestEventId =
+      memberships[0].event_id;
+
+    saveCurrentEventId(
+      latestEventId
+    );
+
+    setHasJoinedEvent(true);
+    setIsCheckingEvents(false);
+  }
+
+  checkLoginAndEvents();
+}, []);
 
   function handleSubmit(
     event: FormEvent<HTMLFormElement>
@@ -105,13 +184,41 @@ export default function Home() {
         </header>
 
         <section className="flex flex-1 flex-col justify-center py-14">
+          {!isCheckingEvents &&
+  hasJoinedEvent && (
+    <button
+      type="button"
+      onClick={() =>
+        router.push("/event")
+      }
+      className="mb-6 flex w-full items-center justify-between rounded-[28px] bg-[#394536] p-5 text-left text-white shadow-[0_20px_50px_rgba(57,69,54,0.18)] transition active:scale-[0.99]"
+    >
+      <div>
+        <p className="text-xs font-bold tracking-[0.12em] text-white/60">
+          CURRENT BOOK
+        </p>
+
+        <p className="mt-2 text-xl font-bold">
+          前回のしおりを開く
+        </p>
+
+        <p className="mt-1 text-sm text-white/70">
+          コード入力なしで続きから
+        </p>
+      </div>
+
+      <span className="text-2xl">
+        →
+      </span>
+    </button>
+  )}
           <div className="mb-8">
             <h2 className="text-4xl font-bold leading-tight tracking-[-0.04em]">
-              しおりに参加
+              新しいしおりに参加
             </h2>
 
             <p className="mt-4 max-w-sm text-[15px] leading-7 text-[#686c63]">
-              旅行コードを入力して、しおりに参加できます。
+              初めて参加する旅行のみ、旅行コードを入力してください。
             </p>
           </div>
 
@@ -131,11 +238,9 @@ export default function Home() {
               type="text"
               value={tripCode}
               onChange={(event) => {
-                setTripCode(
-                  event.target.value.toUpperCase()
-                );
-                setError("");
-              }}
+  setTripCode(event.target.value);
+  setError("");
+}}
               placeholder="例：CAMPBOOK"
               maxLength={20}
               autoComplete="off"

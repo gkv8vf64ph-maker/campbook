@@ -24,10 +24,37 @@ export default function AdminSchedulesPage() {
   const [time, setTime] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [editingScheduleId, setEditingScheduleId] =
+  useState<number | null>(null);
+
+const [editDayNumber, setEditDayNumber] =
+  useState(1);
+
+const [editTime, setEditTime] =
+  useState("");
+
+const [editTitle, setEditTitle] =
+  useState("");
+
+const [editDescription, setEditDescription] =
+  useState("");
+
+const [
+  sendEditNotification,
+  setSendEditNotification,
+] = useState(true);
+
+const [isEditing, setIsEditing] =
+  useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [sendNotification, setSendNotification] =
+  useState(false);
+
+const [successMessage, setSuccessMessage] =
+  useState("");
 
   useEffect(() => {
     const savedEventId = getCurrentEventId();
@@ -80,6 +107,176 @@ export default function AdminSchedulesPage() {
     setSchedules(data ?? []);
     setIsLoading(false);
   }
+  function handleStartEdit(
+  schedule: Schedule
+) {
+  setEditingScheduleId(schedule.id);
+  setEditDayNumber(schedule.day_number);
+  setEditTime(schedule.time.slice(0, 5));
+  setEditTitle(schedule.title);
+  setEditDescription(
+    schedule.description ?? ""
+  );
+  setSendEditNotification(true);
+  setErrorMessage("");
+  setSuccessMessage("");
+}
+function handleCancelEdit() {
+  setEditingScheduleId(null);
+  setEditDayNumber(1);
+  setEditTime("");
+  setEditTitle("");
+  setEditDescription("");
+  setSendEditNotification(true);
+}
+async function handleSaveEdit() {
+  if (!currentEventId || !editingScheduleId) {
+    return;
+  }
+
+  if (!editTime) {
+    setErrorMessage(
+      "時間を入力してください。"
+    );
+    return;
+  }
+
+  if (!editTitle.trim()) {
+    setErrorMessage(
+      "予定名を入力してください。"
+    );
+    return;
+  }
+
+  if (isEditing) return;
+
+  setIsEditing(true);
+  setErrorMessage("");
+  setSuccessMessage("");
+
+  const { data, error } = await supabase
+    .from("schedules")
+    .update({
+      day_number: editDayNumber,
+      time: editTime,
+      title: editTitle.trim(),
+      description:
+        editDescription.trim() || null,
+    })
+    .eq("id", editingScheduleId)
+    .eq("event_id", currentEventId)
+    .select(
+      "id, event_id, day_number, time, title, description"
+    )
+    .single();
+
+  if (error) {
+    console.log(
+      "予定更新エラー:",
+      error.message
+    );
+
+    setErrorMessage(
+      "予定を更新できませんでした。"
+    );
+
+    setIsEditing(false);
+    return;
+  }
+
+  setSchedules((current) =>
+    current
+      .map((schedule) =>
+        schedule.id === data.id
+          ? data
+          : schedule
+      )
+      .sort((a, b) => {
+        if (
+          a.day_number !== b.day_number
+        ) {
+          return (
+            a.day_number -
+            b.day_number
+          );
+        }
+
+        return a.time.localeCompare(
+          b.time
+        );
+      })
+  );
+
+  if (sendEditNotification) {
+    try {
+      const {
+        data: { session },
+      } =
+        await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        setSuccessMessage(
+          "予定は変更しましたが、通知は送信できませんでした。"
+        );
+      } else {
+        const response = await fetch(
+          "/api/push/event",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+              Authorization:
+                `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              eventId: currentEventId,
+              title:
+                "🗓️ 予定が変更されました",
+              body:
+                `DAY ${editDayNumber} ${editTime} ${editTitle.trim()}`,
+              url: "/timeline",
+            }),
+          }
+        );
+
+        const result =
+          await response.json();
+
+        if (!response.ok) {
+          console.log(
+            "予定変更Pushエラー:",
+            result
+          );
+
+          setSuccessMessage(
+            "予定は変更しましたが、通知は送信できませんでした。"
+          );
+        } else {
+          setSuccessMessage(
+            `予定を変更し、${result.sent}台に通知しました 🔔`
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.log(
+        "予定変更通知エラー:",
+        notificationError
+      );
+
+      setSuccessMessage(
+        "予定は変更しましたが、通知は送信できませんでした。"
+      );
+    }
+  } else {
+    setSuccessMessage(
+      "予定を変更しました。"
+    );
+  }
+
+  handleCancelEdit();
+  setIsEditing(false);
+}
 
   async function handleAddSchedule() {
     if (!currentEventId) {
@@ -147,10 +344,82 @@ export default function AdminSchedulesPage() {
       })
     );
 
-    setTime("");
-    setTitle("");
-    setDescription("");
-    setIsSaving(false);
+    if (sendNotification) {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.access_token
+    ) {
+      console.log(
+        "通知用ログイン情報取得エラー:",
+        sessionError
+      );
+
+      setSuccessMessage(
+        "予定は追加しましたが、通知は送信できませんでした。"
+      );
+    } else {
+      const response = await fetch(
+        "/api/push/event",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization:
+              `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            eventId: currentEventId,
+            title: "🗓️ 新しい予定が追加されました",
+            body: `DAY ${dayNumber} ${time} ${title.trim()}`,
+            url: "/timeline",
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.log(
+          "予定Push通知エラー:",
+          result
+        );
+
+        setSuccessMessage(
+          "予定は追加しましたが、通知は送信できませんでした。"
+        );
+      } else {
+        setSuccessMessage(
+          `予定を追加し、${result.sent}台に通知しました 🔔`
+        );
+      }
+    }
+  } catch (notificationError) {
+    console.log(
+      "予定Push通知送信エラー:",
+      notificationError
+    );
+
+    setSuccessMessage(
+      "予定は追加しましたが、通知は送信できませんでした。"
+    );
+  }
+} else {
+  setSuccessMessage(
+    "予定を追加しました。"
+  );
+}
+
+setTime("");
+setTitle("");
+setDescription("");
+setSendNotification(false);
+setIsSaving(false);
   }
 
   async function handleDeleteSchedule(
@@ -286,12 +555,37 @@ export default function AdminSchedulesPage() {
               className="mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#dedfd9] px-4 py-3 outline-none focus:border-[#5d6b56]"
             />
           </div>
+          <label className="mt-5 flex cursor-pointer items-center justify-between rounded-2xl bg-[#f4f6f1] p-4">
+  <div>
+    <p className="text-sm font-bold text-[#394536]">
+      参加者へ通知する
+    </p>
+
+    <p className="mt-1 text-xs leading-5 text-[#81867d]">
+      この予定を追加したことをPush通知します
+    </p>
+  </div>
+
+  <input
+    type="checkbox"
+    checked={sendNotification}
+    onChange={(event) =>
+      setSendNotification(event.target.checked)
+    }
+    className="h-5 w-5 accent-[#394536]"
+  />
+</label>
 
           {errorMessage && (
             <p className="mt-4 rounded-2xl bg-red-50 p-3 text-sm text-red-600">
               {errorMessage}
             </p>
           )}
+          {successMessage && (
+  <p className="mt-4 rounded-2xl bg-[#eef2e9] p-3 text-sm font-medium text-[#394536]">
+    {successMessage}
+  </p>
+)}
 
           <button
             type="button"
@@ -369,18 +663,174 @@ export default function AdminSchedulesPage() {
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleDeleteSchedule(
-                        schedule.id
-                      )
-                    }
-                    className="shrink-0 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600"
-                  >
-                    削除
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+  <button
+    type="button"
+    onClick={() =>
+      handleStartEdit(schedule)
+    }
+    className="rounded-xl bg-[#eef2e9] px-3 py-2 text-xs font-bold text-[#5d6b56]"
+  >
+    編集
+  </button>
+
+  <button
+    type="button"
+    onClick={() =>
+      handleDeleteSchedule(
+        schedule.id
+      )
+    }
+    className="rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-600"
+  >
+    削除
+  </button>
+</div>
+{editingScheduleId ===
+  schedule.id && (
+  <div className="mt-5 border-t border-[#eceee8] pt-5">
+    <p className="text-sm font-bold text-[#394536]">
+      予定を編集
+    </p>
+
+    <div className="mt-4">
+      <label className="text-xs font-bold text-[#7b8475]">
+        日
+      </label>
+
+      <select
+        value={editDayNumber}
+        onChange={(event) =>
+          setEditDayNumber(
+            Number(
+              event.target.value
+            )
+          )
+        }
+        className="mt-2 w-full rounded-2xl border border-[#dedfd9] bg-white px-4 py-3"
+      >
+        <option value={1}>
+          DAY 1
+        </option>
+        <option value={2}>
+          DAY 2
+        </option>
+        <option value={3}>
+          DAY 3
+        </option>
+        <option value={4}>
+          DAY 4
+        </option>
+        <option value={5}>
+          DAY 5
+        </option>
+      </select>
+    </div>
+
+    <div className="mt-4">
+      <label className="text-xs font-bold text-[#7b8475]">
+        時間
+      </label>
+
+      <input
+        type="time"
+        value={editTime}
+        onChange={(event) =>
+          setEditTime(
+            event.target.value
+          )
+        }
+        className="mt-2 w-full rounded-2xl border border-[#dedfd9] px-4 py-3"
+      />
+    </div>
+
+    <div className="mt-4">
+      <label className="text-xs font-bold text-[#7b8475]">
+        予定名
+      </label>
+
+      <input
+        type="text"
+        value={editTitle}
+        onChange={(event) =>
+          setEditTitle(
+            event.target.value
+          )
+        }
+        className="mt-2 w-full rounded-2xl border border-[#dedfd9] px-4 py-3"
+      />
+    </div>
+
+    <div className="mt-4">
+      <label className="text-xs font-bold text-[#7b8475]">
+        説明
+      </label>
+
+      <textarea
+        value={editDescription}
+        onChange={(event) =>
+          setEditDescription(
+            event.target.value
+          )
+        }
+        className="mt-2 min-h-24 w-full resize-none rounded-2xl border border-[#dedfd9] px-4 py-3"
+      />
+    </div>
+
+    <label className="mt-4 flex cursor-pointer items-center justify-between rounded-2xl bg-[#f4f6f1] p-4">
+      <div>
+        <p className="text-sm font-bold text-[#394536]">
+          変更を参加者へ通知
+        </p>
+
+        <p className="mt-1 text-xs text-[#81867d]">
+          予定変更をPush通知します
+        </p>
+      </div>
+
+      <input
+        type="checkbox"
+        checked={
+          sendEditNotification
+        }
+        onChange={(event) =>
+          setSendEditNotification(
+            event.target.checked
+          )
+        }
+        className="h-5 w-5 accent-[#394536]"
+      />
+    </label>
+
+    <div className="mt-5 grid grid-cols-2 gap-3">
+      <button
+        type="button"
+        onClick={
+          handleCancelEdit
+        }
+        disabled={isEditing}
+        className="rounded-2xl border border-[#d7dbd3] bg-white py-3 text-sm font-bold text-[#5d6b56]"
+      >
+        キャンセル
+      </button>
+
+      <button
+        type="button"
+        onClick={
+          handleSaveEdit
+        }
+        disabled={isEditing}
+        className="rounded-2xl bg-[#394536] py-3 text-sm font-bold text-white disabled:opacity-60"
+      >
+        {isEditing
+          ? "保存中…"
+          : "変更を保存"}
+      </button>
+    </div>
+  </div>
+)}
                 </div>
+
               </div>
             ))}
           </div>

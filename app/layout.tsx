@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppInstallGate from "@/components/AppInstallGate";
 import "./globals.css";
+import PushNotificationSetup from "@/components/PushNotificationSetup";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -67,6 +68,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <PushNotificationSetup />
         <AppInstallGate>{children}</AppInstallGate>
       </body>
     </html>

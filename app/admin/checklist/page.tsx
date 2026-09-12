@@ -22,6 +22,11 @@ export default function AdminChecklistPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] =
+  useState("");
+
+const [sendNotification, setSendNotification] =
+  useState(false);
 
   // 現在のイベントIDを取得
   useEffect(() => {
@@ -95,7 +100,8 @@ export default function AdminChecklistPage() {
     if (isSaving) return;
 
     setIsSaving(true);
-    setErrorMessage("");
+setErrorMessage("");
+setSuccessMessage("");
 
     const nextSortOrder =
       items.length > 0
@@ -133,12 +139,87 @@ export default function AdminChecklistPage() {
     }
 
     setItems((current) => [
-      ...current,
-      data,
-    ]);
+  ...current,
+  data,
+]);
 
-    setName("");
-    setIsSaving(false);
+if (sendNotification) {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.access_token
+    ) {
+      console.log(
+        "通知用ログイン情報取得エラー:",
+        sessionError
+      );
+
+      setSuccessMessage(
+        "持ち物は追加しましたが、通知は送信できませんでした。"
+      );
+    } else {
+      const response = await fetch(
+        "/api/push/event",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+            Authorization:
+              `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            eventId: currentEventId,
+            title:
+              "🎒 持ち物が追加されました",
+            body: name.trim(),
+            url: "/checklist",
+          }),
+        }
+      );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        console.log(
+          "持ち物Push通知エラー:",
+          result
+        );
+
+        setSuccessMessage(
+          "持ち物は追加しましたが、通知は送信できませんでした。"
+        );
+      } else {
+        setSuccessMessage(
+          `持ち物を追加し、${result.sent}台に通知しました 🔔`
+        );
+      }
+    }
+  } catch (notificationError) {
+    console.log(
+      "持ち物通知送信エラー:",
+      notificationError
+    );
+
+    setSuccessMessage(
+      "持ち物は追加しましたが、通知は送信できませんでした。"
+    );
+  }
+} else {
+  setSuccessMessage(
+    "持ち物を追加しました。"
+  );
+}
+
+setName("");
+setSendNotification(false);
+setIsSaving(false);
   }
 
   // 持ち物を削除
@@ -220,12 +301,39 @@ export default function AdminChecklistPage() {
             placeholder="例：体育館シューズ"
             className="mt-4 w-full rounded-2xl border border-[#dedfd9] px-4 py-3 outline-none focus:border-[#5d6b56]"
           />
+          <label className="mt-5 flex cursor-pointer items-center justify-between rounded-2xl bg-[#f4f6f1] p-4">
+  <div>
+    <p className="text-sm font-bold text-[#394536]">
+      参加者へ通知する
+    </p>
+
+    <p className="mt-1 text-xs leading-5 text-[#81867d]">
+      この持ち物を追加したことをPush通知します
+    </p>
+  </div>
+
+  <input
+    type="checkbox"
+    checked={sendNotification}
+    onChange={(event) =>
+      setSendNotification(
+        event.target.checked
+      )
+    }
+    className="h-5 w-5 accent-[#394536]"
+  />
+</label>
 
           {errorMessage && (
             <p className="mt-4 rounded-2xl bg-red-50 p-4 text-sm font-medium text-red-600">
               {errorMessage}
             </p>
           )}
+          {successMessage && (
+  <p className="mt-4 rounded-2xl bg-[#eef2e9] p-4 text-sm font-medium text-[#394536]">
+    {successMessage}
+  </p>
+)}
 
           <button
             type="button"
