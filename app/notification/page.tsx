@@ -16,9 +16,11 @@ export default function NotificationPage() {
       router.replace("/");
       return;
     }
+    
 
     const eventId = Number(eventIdText);
-
+console.log("通知から受け取ったeventId:", eventId);
+console.log("通知の移動先:", to);
     if (!Number.isFinite(eventId)) {
       router.replace("/");
       return;

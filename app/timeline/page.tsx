@@ -205,6 +205,10 @@ export default function TimelinePage() {
   useEffect(() => {
     const savedEventId =
       getCurrentEventId();
+      console.log(
+  "timelineが読み込んだeventId:",
+  savedEventId
+);
 
     if (savedEventId) {
       setCurrentEventId(
