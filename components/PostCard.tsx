@@ -712,6 +712,53 @@ export default function PostCard({
         data,
       ]
     );
+    // 顔リアクションを投稿者に通知
+if (
+  postUserId &&
+  postUserId !== currentUserId
+) {
+  try {
+    const {
+      data: { session },
+    } =
+      await supabase.auth.getSession();
+
+    if (session?.access_token) {
+      const response =
+        await fetch(
+          "/api/push/user",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/json",
+              Authorization:
+                `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              postId,
+              reactionType: "📷",
+            }),
+          }
+        );
+
+      const result =
+        await response.json();
+
+      if (!response.ok) {
+        console.error(
+          "顔リアクション通知エラー:",
+          result
+        );
+      }
+    }
+  } catch (error) {
+    console.error(
+      "顔リアクション通知送信エラー:",
+      error
+    );
+  }
+}
 
     setIsFaceUploading(
       false

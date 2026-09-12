@@ -179,6 +179,66 @@ export async function POST(request: NextRequest) {
         skipped: true,
       });
     }
+    // 実際にリアクションが保存されているか確認
+if (reactionType === "📷") {
+  const {
+    data: faceReaction,
+    error: faceReactionError,
+  } = await adminSupabase
+    .from("face_reactions")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", user.id)
+    .order("created_at", {
+      ascending: false,
+    })
+    .limit(1)
+    .maybeSingle();
+
+  if (
+    faceReactionError ||
+    !faceReaction
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "顔リアクションを確認できませんでした",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+} else {
+  const {
+    data: reaction,
+    error: reactionError,
+  } = await adminSupabase
+    .from("reactions")
+    .select("id")
+    .eq("post_id", postId)
+    .eq("user_id", user.id)
+    .eq(
+      "reaction_type",
+      reactionType
+    )
+    .maybeSingle();
+
+  if (
+    reactionError ||
+    !reaction
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "リアクションを確認できませんでした",
+      },
+      {
+        status: 400,
+      }
+    );
+  }
+}
 
     // リアクションした人の名前
     const {
@@ -270,11 +330,15 @@ export async function POST(request: NextRequest) {
             },
           },
           JSON.stringify({
-            title:
-              `${reactionType} ${actorName}さんがリアクションしました`,
+           title:
+  reactionType === "📷"
+    ? `📷 ${actorName}さんが写真リアクションしました`
+    : `${reactionType} ${actorName}さんがリアクションしました`,
 
-            body:
-              `あなたの投稿に「${reactionType}」をつけました`,
+body:
+  reactionType === "📷"
+    ? "あなたの投稿に写真リアクションが届きました"
+    : `あなたの投稿に「${reactionType}」をつけました`,
 
             url: `/notification?eventId=${post.event_id}&to=${encodeURIComponent(
   `/timeline?postId=${postId}`
