@@ -221,9 +221,9 @@ export async function POST(request: NextRequest) {
         : comment.comment;
 
     const notificationUrl =
-      `/notification?eventId=${post.event_id}&to=${encodeURIComponent(
-        "/timeline"
-      )}`;
+  `/notification?eventId=${post.event_id}&to=${encodeURIComponent(
+    `/timeline?postId=${postId}`
+  )}`;
 
     let sent = 0;
     let failed = 0;

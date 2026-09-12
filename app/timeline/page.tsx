@@ -178,6 +178,12 @@ export default function TimelinePage() {
   ] = useState<number | null>(
     null
   );
+  const [
+  targetPostId,
+  setTargetPostId,
+] = useState<number | null>(
+  null
+);
 
   const [event, setEvent] =
     useState<Event | null>(null);
@@ -201,27 +207,40 @@ export default function TimelinePage() {
     setErrorMessage,
   ] = useState("");
 
-  // 現在のイベントIDを取得
-  useEffect(() => {
-    const savedEventId =
-      getCurrentEventId();
-      console.log(
-  "timelineが読み込んだeventId:",
-  savedEventId
-);
+  // 現在のイベントIDと通知先投稿IDを取得
+useEffect(() => {
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
 
-    if (savedEventId) {
-      setCurrentEventId(
-        savedEventId
-      );
-    } else {
-      setErrorMessage(
-        "参加中のイベントが見つかりません。"
-      );
+  const postIdText =
+    params.get("postId");
 
-      setIsLoading(false);
+  if (postIdText) {
+    const postId =
+      Number(postIdText);
+
+    if (Number.isFinite(postId)) {
+      setTargetPostId(postId);
     }
-  }, []);
+  }
+
+  const savedEventId =
+    getCurrentEventId();
+
+  if (savedEventId) {
+    setCurrentEventId(
+      savedEventId
+    );
+  } else {
+    setErrorMessage(
+      "参加中のイベントが見つかりません。"
+    );
+
+    setIsLoading(false);
+  }
+}, []);
 
   // イベント情報を取得
   useEffect(() => {
@@ -346,6 +365,61 @@ export default function TimelinePage() {
 
     fetchPosts();
   }, [currentEventId]);
+  // 通知から開いた投稿の日に自動で切り替える
+useEffect(() => {
+  if (
+    !targetPostId ||
+    !event ||
+    posts.length === 0
+  ) {
+    return;
+  }
+
+  const targetPost =
+    posts.find(
+      (post) =>
+        post.id === targetPostId
+    );
+
+  if (!targetPost) return;
+
+  const dayNumber =
+    getPostDayNumber(
+      targetPost.created_at,
+      event.start_date
+    );
+
+  setSelectedDay(dayNumber);
+}, [
+  targetPostId,
+  posts,
+  event,
+]);
+// 通知から開いた投稿まで自動でスクロール
+useEffect(() => {
+  if (!targetPostId) return;
+
+  const timer =
+    window.setTimeout(() => {
+      const element =
+        document.getElementById(
+          `post-${targetPostId}`
+        );
+
+      element?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 400);
+
+  return () => {
+    window.clearTimeout(timer);
+  };
+}, [
+  targetPostId,
+  selectedDay,
+  posts,
+]);
 
   // 予定を取得
   useEffect(() => {
@@ -669,71 +743,61 @@ export default function TimelinePage() {
                     />
 
                     {postsBySchedule[
-                      scheduleIndex
-                    ].map(
-                      (post) => (
-                        <PostCard
-                          key={
-                            post.id
-                          }
-                          postId={
-                            post.id
-                          }
-                          postUserId={
-                            post.user_id
-                          }
-                          user={
-                            post.user_name
-                          }
-                          time={formatTime(
-                            post.created_at
-                          )}
-                          comment={
-                            post.comment
-                          }
-                          emoji="📷"
-                          image={
-                            post.image_url ??
-                            ""
-                          }
-                        />
-                      )
-                    )}
+  scheduleIndex
+].map(
+  (post) => (
+    <div
+      key={post.id}
+      id={`post-${post.id}`}
+    >
+      <PostCard
+        postId={post.id}
+        postUserId={post.user_id}
+        user={post.user_name}
+        time={formatTime(
+          post.created_at
+        )}
+        comment={post.comment}
+        emoji="📷"
+        image={
+          post.image_url ??
+          ""
+        }
+      />
+    </div>
+  )
+)}
                   </div>
                 )
               )}
 
             {!isLoading &&
-              !errorMessage &&
-              selectedDaySchedules.length ===
-                0 &&
-              selectedDayPosts.map(
-                (post) => (
-                  <PostCard
-                    key={post.id}
-                    postId={
-                      post.id
-                    }
-                    postUserId={
-                      post.user_id
-                    }
-                    user={
-                      post.user_name
-                    }
-                    time={formatTime(
-                      post.created_at
-                    )}
-                    comment={
-                      post.comment
-                    }
-                    emoji="📷"
-                    image={
-                      post.image_url ??
-                      ""
-                    }
-                  />
-                )
-              )}
+  !errorMessage &&
+  selectedDaySchedules.length ===
+    0 &&
+  selectedDayPosts.map(
+    (post) => (
+      <div
+        key={post.id}
+        id={`post-${post.id}`}
+      >
+        <PostCard
+          postId={post.id}
+          postUserId={post.user_id}
+          user={post.user_name}
+          time={formatTime(
+            post.created_at
+          )}
+          comment={post.comment}
+          emoji="📷"
+          image={
+            post.image_url ??
+            ""
+          }
+        />
+      </div>
+    )
+  )}
 
             {!isLoading &&
               !errorMessage &&

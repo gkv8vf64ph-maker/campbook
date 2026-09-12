@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
               `あなたの投稿に「${reactionType}」をつけました`,
 
             url: `/notification?eventId=${post.event_id}&to=${encodeURIComponent(
-  "/timeline"
+  `/timeline?postId=${postId}`
 )}`,
           })
         );
