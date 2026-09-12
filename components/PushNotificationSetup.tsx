@@ -26,7 +26,6 @@ export default function PushNotificationSetup() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isTesting, setIsTesting] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -197,73 +196,6 @@ export default function PushNotificationSetup() {
     }
   }
 
-  async function sendTestNotification() {
-    if (isTesting) {
-      return;
-    }
-
-    setIsTesting(true);
-    setMessage("");
-
-    try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (
-        sessionError ||
-        !session?.access_token
-      ) {
-        setMessage(
-          "ログイン情報を取得できませんでした"
-        );
-        return;
-      }
-
-      const response = await fetch(
-        "/api/push/test",
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        console.error(
-          "Test push error:",
-          result
-        );
-
-        setMessage(
-          result.error ||
-            "テスト通知を送れませんでした"
-        );
-
-        return;
-      }
-
-      setMessage(
-        `テスト通知を送信しました 🔔 (${result.sent}台)`
-      );
-    } catch (error) {
-      console.error(
-        "テスト通知エラー:",
-        error
-      );
-
-      setMessage(
-        "テスト通知の送信に失敗しました"
-      );
-    } finally {
-      setIsTesting(false);
-    }
-  }
 
   if (!isSupported || !isLoggedIn) {
     return null;
@@ -271,45 +203,8 @@ export default function PushNotificationSetup() {
 
   // 通知登録済み
   if (isSubscribed) {
-    return (
-      <div className="fixed bottom-24 left-1/2 z-[9000] w-[calc(100%-32px)] max-w-sm -translate-x-1/2">
-        <div className="rounded-[24px] border border-[#e6e4dc] bg-white p-4 shadow-[0_12px_35px_rgba(57,69,54,0.15)]">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#eef2e9] text-xl">
-              🔔
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-[#394536]">
-                通知テスト
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-[#81867d]">
-                CampBookから通知が届くか確認します
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={sendTestNotification}
-            disabled={isTesting}
-            className="mt-3 flex h-11 w-full items-center justify-center rounded-2xl bg-[#394536] text-sm font-bold text-white transition active:scale-[0.98] disabled:opacity-60"
-          >
-            {isTesting
-              ? "送信中..."
-              : "テスト通知を送る"}
-          </button>
-
-          {message && (
-            <p className="mt-2 text-center text-xs font-semibold text-[#777c73]">
-              {message}
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
+  return null;
+}
 
   // まだ通知登録していない
   return (
