@@ -83,16 +83,7 @@ export default function NewsPage() {
     fetchNews();
   }, [currentEventId]);
 
-  function formatDate(
-    createdAt: string
-  ) {
-    return new Date(
-      createdAt
-    ).toLocaleDateString("ja-JP", {
-      month: "numeric",
-      day: "numeric",
-    });
-  }
+  
 
   return (
     <main className="min-h-screen bg-[#f4f1e9] p-6 text-[#252720]">
@@ -153,15 +144,11 @@ export default function NewsPage() {
                   key={item.id}
                   className="rounded-2xl border border-[#ece9e2] p-5"
                 >
-                  <p className="text-xs font-bold text-[#8a8f84]">
-                    {formatDate(
-                      item.created_at
-                    )}
-                  </p>
+                  
 
-                  <h2 className="mt-2 text-lg font-bold text-[#394536]">
-                    {item.title}
-                  </h2>
+                  <h2 className="text-lg font-bold text-[#394536]">
+  {item.title}
+</h2>
 
                   <p className="mt-2 whitespace-pre-wrap text-sm font-medium leading-6 text-[#394536]">
                     {item.content}
