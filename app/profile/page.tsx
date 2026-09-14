@@ -365,6 +365,22 @@ export default function ProfilePage() {
 
       setProfile(data as Profile);
     }
+    // 参加中イベントの表示名もプロフィール名に合わせる
+const {
+  error: memberNameUpdateError,
+} = await supabase
+  .from("event_members")
+  .update({
+    user_name: trimmedName,
+  })
+  .eq("user_id", user.id);
+
+if (memberNameUpdateError) {
+  console.error(
+    "メンバー名更新エラー:",
+    memberNameUpdateError.message
+  );
+}
 
     setSelectedFile(null);
     setPreviewObjectUrl(null);
