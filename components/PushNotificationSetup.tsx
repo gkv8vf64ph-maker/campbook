@@ -61,11 +61,23 @@ export default function PushNotificationSetup() {
         setIsLoggedIn(true);
 
         const subscription =
-          await registration.pushManager.getSubscription();
+  await registration.pushManager.getSubscription();
 
-        if (subscription) {
-          setIsSubscribed(true);
-        }
+if (subscription) {
+  const { data: savedSubscription } =
+    await supabase
+      .from("push_subscriptions")
+      .select("endpoint")
+      .eq("user_id", user.id)
+      .eq("endpoint", subscription.endpoint)
+      .maybeSingle();
+
+  if (savedSubscription) {
+    setIsSubscribed(true);
+  } else {
+    setIsSubscribed(false);
+  }
+}
       } catch (error) {
         console.error("Push setup error:", error);
       }
