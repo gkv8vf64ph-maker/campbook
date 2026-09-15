@@ -29,62 +29,86 @@ export default function PushNotificationSetup() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    async function setup() {
-      const supported =
-        "serviceWorker" in navigator &&
-        "PushManager" in window &&
-        "Notification" in window;
+  let isMounted = true;
 
-      setIsSupported(supported);
+  async function setup() {
+    const supported =
+      "serviceWorker" in navigator &&
+      "PushManager" in window &&
+      "Notification" in window;
 
-      if (!supported) {
+    if (!isMounted) return;
+
+    setIsSupported(supported);
+
+    if (!supported) {
+      return;
+    }
+
+    try {
+      const registration =
+        await navigator.serviceWorker.register("/sw.js");
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      if (!user) {
+        setIsLoggedIn(false);
+        setIsSubscribed(false);
         return;
       }
 
-      try {
-        const registration =
-          await navigator.serviceWorker.register("/sw.js");
+      setIsLoggedIn(true);
 
-        console.log(
-          "CampBook Service Worker registered"
-        );
+      const subscription =
+        await registration.pushManager.getSubscription();
 
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+      if (!isMounted) return;
 
-        if (!user) {
-          setIsLoggedIn(false);
-          return;
-        }
-
-        setIsLoggedIn(true);
-
-        const subscription =
-  await registration.pushManager.getSubscription();
-
-if (subscription) {
-  const { data: savedSubscription } =
-    await supabase
-      .from("push_subscriptions")
-      .select("endpoint")
-      .eq("user_id", user.id)
-      .eq("endpoint", subscription.endpoint)
-      .maybeSingle();
-
-  if (savedSubscription) {
-    setIsSubscribed(true);
-  } else {
-    setIsSubscribed(false);
-  }
-}
-      } catch (error) {
-        console.error("Push setup error:", error);
+      if (!subscription) {
+        setIsSubscribed(false);
+        return;
       }
-    }
 
-    setup();
-  }, []);
+      const { data: savedSubscription } =
+        await supabase
+          .from("push_subscriptions")
+          .select("endpoint")
+          .eq("user_id", user.id)
+          .eq("endpoint", subscription.endpoint)
+          .maybeSingle();
+
+      if (!isMounted) return;
+
+      setIsSubscribed(
+        Boolean(savedSubscription)
+      );
+    } catch (error) {
+      console.error(
+        "Push setup error:",
+        error
+      );
+    }
+  }
+
+  setup();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange(
+    () => {
+      setup();
+    }
+  );
+
+  return () => {
+    isMounted = false;
+    subscription.unsubscribe();
+  };
+}, []);
 
   async function enableNotifications() {
     if (isLoading) {
